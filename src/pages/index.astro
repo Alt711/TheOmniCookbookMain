@@ -1,11 +1,60 @@
 ---
-import Welcome from '../components/Welcome.astro';
-import Layout from '../layouts/Layout.astro';
+import Layout from '../layouts/Layout.astro'
+import { createClient } from '@supabase/supabase-js'
 
-// Welcome to Astro! Wondering what to do next? Check out the Astro documentation at https://docs.astro.build
-// Don't want to use any of this? Delete everything in this file, the `assets`, `components`, and `layouts` directories, and start fresh.
+// define your row type
+interface Recipe {
+	id: number
+	title: string
+	ingredients: string
+}
+
+// initialize Supabase
+const supabase = createClient(
+	import.meta.env.PUBLIC_SUPABASE_URL,
+	import.meta.env.PUBLIC_SUPABASE_ANON_KEY
+)
+
+// tell TS what the array will hold
+let recipes: Recipe[] = []
+let error: Error | null = null
+
+try {
+	const { data, error: fetchError } = await supabase
+		.from('recipes')
+		.select('id, title, ingredients')
+		.limit(25)
+
+	if (fetchError) {
+		error = fetchError
+	} else if (data) {
+		recipes = data
+	}
+} catch (e) {
+	error = e as Error
+}
 ---
 
-<Layout>
-	<Welcome />
+<Layout title="Omnicookbook">
+	<h1 style="text-align:center;color:#c41e16;">Welcome to the Omnicookbook</h1>
+
+	{error && (
+		<p style="color:#b00020;text-align:center;">
+			⚠️ Error fetching data: {error.message}
+		</p>
+	)}
+
+	{recipes.length > 0 ? (
+		<ul style="max-width:600px;margin:1rem auto;list-style:none;padding:0;">
+			{recipes.map((r) => (
+				<li
+					style="background:#fff7ef;border:1px solid #ddd;border-radius:.5rem;padding:.75rem;margin:.5rem 0;"
+				>
+					<strong>{r.title}</strong> — {r.ingredients}
+				</li>
+			))}
+		</ul>
+	) : (
+		!error && <p style="text-align:center;">No data found.</p>
+	)}
 </Layout>
