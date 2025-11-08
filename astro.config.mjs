@@ -5,5 +5,6 @@ import netlify from '@astrojs/netlify';
 
 // https://astro.build/config
 export default defineConfig({
-  adapter: netlify()
+  site: 'https://alt711.github.io/TheOmniCookbookMain/',
+  base: '/TheOmniCookbookMain/'
 });
