@@ -1,0 +1,41 @@
+#Returns the list of recipies that have the ingredients inside of them
+#Ingredients are lowercase and seperated by commas
+def recipiesByIngredients(ingredientsString):
+    
+    #Clean the passed in string for searching
+    cleanedString = ingredientsString.lower().strip()
+    
+    #Url for the find by ingredients page
+    url = "https://api.spoonacular.com/recipes/findByIngredients"
+    
+    #Parameters 
+    params = {
+    "ingredients": cleanedString,
+    "apiKey": api_key
+    }
+    
+    response = requests.get(url, params=params)
+    
+    data = response.json()
+    
+    
+    cleaned = []
+
+    for recipe in data: 
+        
+        id =  recipe["id"]
+        recipeTitle =  recipe["title"]
+        image =  recipe["image"]
+        usedIngredients =  [i["name"] for i in recipe["usedIngredients"]]
+        missingIngredients = [i["name"] for i in recipe["unusedIngredients"]]
+        
+        cleaned.append({
+        
+        "id": id,
+        "recipe": recipeTitle,
+        "image": image,
+        "usedIngredients": usedIngredients,
+        "missingIngredients": missingIngredients
+    })
+
+    return cleaned
