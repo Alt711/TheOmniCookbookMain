@@ -1,10 +1,8 @@
-// @ts-check
+// astro.config.mjs
 import { defineConfig } from 'astro/config';
+import netlify from '@astrojs/netlify/functions';
 
-import netlify from '@astrojs/netlify';
-
-// https://astro.build/config
+// basic config, nothing fancy
 export default defineConfig({
-  site: 'https://alt711.github.io/TheOmniCookbookMain/',
-  base: '/TheOmniCookbookMain/'
+  adapter: netlify(),
 });
