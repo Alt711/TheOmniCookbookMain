@@ -1,0 +1,184 @@
+body {
+    font-family: 'Times New Roman', Times, serif;
+    background: rgb(243, 193, 146);
+    margin: 80px;
+    padding-top: 120px;
+    overflow: hidden;
+}
+
+
+
+.top-bar{
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    background-color: rgb(243, 176, 113);
+    padding: 10px  20px;
+    min-height: 50px;
+    
+}
+
+.page-title{
+    font-weight: bold;
+    font-size: 35px;
+    color: black !important;
+    text-decoration: none;
+}
+
+
+.right-side-lks {
+    padding-right: 40px;
+    display: flex;
+    gap: 40px;
+}
+
+
+
+.right-side-lks a{
+    font-weight: bold;
+    font-size: 25px;
+    color: black !important;
+    text-decoration: none;
+}
+
+.top-bar a:hover {
+
+    background-color: rgb(228, 183, 141);
+    border-radius: 5px;
+}
+
+
+.prompt-index{
+    position: relative;
+    text-align: center;
+    font-size: 45px;
+    top: -120px;
+}
+
+.omnisearchbox{
+    display: flex;
+    justify-content: center;
+    align-items: stretch;
+    align-items: center;
+    position: relative;
+    top: -100px;    
+}
+
+.omnisearchinput{
+    flex: 0 1 auto;
+    width: 40%;
+    height: 40px;
+    padding: 0 12px;
+    border: 1px solid #ccc;
+    border-right: none;
+    border-radius: 20px 0 0 20px;
+    font-size: 18px;
+
+}
+
+
+.omnisearchinput:focus{
+    outline: none;
+    box-shadow: 0px 0px 10px 2px rgba(0,123,255,0.25);
+}
+
+
+.omnisearchbutton{
+    cursor: pointer;
+    height: 42px;
+    padding: 0 16px;
+    border: 1px solid #ccc;
+    border-radius: 0 20px 20px 0;
+
+}
+
+
+
+.myfridge-left,
+.mealplanner-right{
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    position: fixed;
+    top: 80px;
+    left: 0;
+    width: auto;
+    background-color: transparent;
+    padding: 10px  20px;
+    min-height: 50px;
+
+}
+
+
+.top-bar a:hover,
+.myfridgebutton:hover,
+.omnisearchbutton:hover,
+.mealplannerbutton:hover{
+    outline: none;
+    box-shadow: 0px 0px 10px 2px rgba(0,123,255,0.25);
+}
+
+.mealplanner-right {
+    right: 0;
+    justify-content: flex-end;
+    z-index: 999;
+}
+
+.myfridge-left{
+    left: 0;
+    justify-content: flex-start;
+    z-index: 1000;
+}
+
+
+
+
+.mealplannerbutton,
+.myfridgebutton{
+    
+    padding: 8px 80px;
+    border: none;
+    background: #e67e22;
+    color: white;
+    border-radius: 4px;
+    cursor: pointer;
+    min-width: 300px;
+
+
+}
+
+.header{
+    text-align: center;
+    font-weight: bold;
+    font-size: 55px;
+    position: relative;
+    top: -120px;
+}
+
+.about-container{
+    width: 60%;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.about-content{
+    text-align: left;
+    font-size: 35px;
+    position: relative;
+    top: -130px;
+}
+
+
+.contact-content-info,
+.contact-content{
+    text-align: center;
+    font-size: 35px;
+    position: relative;
+    top: -130px;
+}
+
+

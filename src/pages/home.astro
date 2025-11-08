@@ -1,49 +1,193 @@
 ﻿---
-// Welcome to Astro! Everything between these triple-dash code fences
-// is your "component frontmatter". It never runs in the browser.
-console.log('This runs in your terminal, not the browser!');
+import Layout from '../layouts/Layout.astro'
+
+/** ========== config you can tweak ========== */
+const QUERY = 'chocolate bar'   // search phrase
+/** ========================================= */
+
+function fmtErr(prefix: string, e: unknown) {
+	const base = e as any
+	return [
+		prefix,
+		base?.message && `message: ${base.message}`,
+		base?.code && `code: ${base.code}`,
+		base?.details && `details: ${base.details}`,
+		base?.hint && `hint: ${base.hint}`,
+		base?.name && `name: ${base.name}`,
+		base?.status && `status: ${base.status}`,
+	].filter(Boolean).join(' | ')
+}
+
+const FDC_KEY = import.meta.env.FDC_API_KEY
+if (!FDC_KEY) throw new Error('Missing FDC_API_KEY (set as build env / Actions secret)')
+
+let food: any = null
+let error: { message: string } | null = null
+
+try {
+	// 1) search
+	const sUrl = new URL('https://api.nal.usda.gov/fdc/v1/foods/search')
+	sUrl.searchParams.set('api_key', FDC_KEY)
+	sUrl.searchParams.set('query', QUERY)
+	sUrl.searchParams.set('pageSize', '1')
+	sUrl.searchParams.set('dataType', 'Branded,SR Legacy,Survey (FNDDS)')
+
+	const sRes = await fetch(sUrl.toString())
+	const sTxt = await sRes.text()
+	if (!sRes.ok) throw new Error(`Search HTTP ${sRes.status} ${sRes.statusText} | ${sTxt.slice(0,200)}`)
+	const sJson = JSON.parse(sTxt)
+	const top = sJson?.foods?.[0]
+	if (!top?.fdcId) throw new Error(`No results for "${QUERY}"`)
+
+	// 2) details
+	const dUrl = new URL(`https://api.nal.usda.gov/fdc/v1/food/${top.fdcId}`)
+	dUrl.searchParams.set('api_key', FDC_KEY)
+	const dRes = await fetch(dUrl.toString())
+	const dTxt = await dRes.text()
+	if (!dRes.ok) throw new Error(`Details HTTP ${dRes.status} ${dRes.statusText} | ${dTxt.slice(0,200)}`)
+	food = JSON.parse(dTxt)
+} catch (e) {
+	console.error('[fdc]', e)
+	error = { message: fmtErr('Caught', e) }
+}
+
+/** Build a normalized nutrient map from both shapes */
+function buildMap(fd: any) {
+	const map = new Map<string, { value: number; unit: string }>()
+
+	// A) full list (amount + nutrient.name / unit)
+	for (const n of (fd?.foodNutrients ?? [])) {
+		const name = n.nutrientName ?? n.nutrient?.name
+		const unit = n.unitName ?? n.nutrient?.unitName ?? ''
+		const val  = n.value ?? n.amount
+		if (name != null && val != null) {
+			map.set(String(name).toLowerCase(), { value: Number(val), unit })
+		}
+	}
+
+	// B) labelNutrients (per serving)
+	const ln = fd?.labelNutrients || {}
+	const addLN = (key: string, pretty: string, unit: string) => {
+		if (ln[key]?.value != null) map.set(pretty.toLowerCase(), { value: Number(ln[key].value), unit })
+	}
+	addLN('calories',      'Energy',                       'kcal')
+	addLN('fat',           'Total lipid (fat)',            'g')
+	addLN('carbohydrates', 'Carbohydrate, by difference',  'g')
+	addLN('sugars',        'Sugars, total including NLEA', 'g')
+	addLN('protein',       'Protein',                      'g')
+
+	return map
+}
+
+const NMAP = buildMap(food)
+
+function pickAny(names: string[]): { value: number | null; unit: string } {
+	for (const name of names) {
+		const hit = NMAP.get(name.toLowerCase())
+		if (hit) return hit
+	}
+	return { value: null, unit: '' }
+}
+
+function fmt(val: number | null, unit: string) {
+	if (val == null) return '—'
+	const fixed = /kcal/i.test(unit) ? val.toFixed(0) : val.toFixed(1)
+	return `${fixed} ${unit}`
+}
+
+// Values per serving (fallback to generic list if labelNutrients absent)
+const S_ENERGY = pickAny(['Energy', 'Energy (Atwater General Factors)'])
+const S_PRO    = pickAny(['Protein'])
+const S_FAT    = pickAny(['Total lipid (fat)', 'Total Fat'])
+const S_CARB   = pickAny(['Carbohydrate, by difference', 'Total Carbohydrate'])
+const S_SUGAR  = pickAny(['Sugars, total including NLEA', 'Sugars, total'])
+
+// Optional per-100g conversion if serving size is in grams
+let H_ENERGY: string | null = null
+let H_PRO:    string | null = null
+let H_FAT:    string | null = null
+let H_CARB:   string | null = null
+let H_SUGAR:  string | null = null
+
+const ss = Number(food?.servingSize)
+const ssUnit = String(food?.servingSizeUnit || '')
+const factor = (ss && /g/i.test(ssUnit)) ? (100 / ss) : null
+
+if (factor && S_ENERGY.value != null) H_ENERGY = fmt(S_ENERGY.value * factor, S_ENERGY.unit)
+if (factor && S_PRO.value    != null) H_PRO    = fmt(S_PRO.value    * factor, S_PRO.unit)
+if (factor && S_FAT.value    != null) H_FAT    = fmt(S_FAT.value    * factor, S_FAT.unit)
+if (factor && S_CARB.value   != null) H_CARB   = fmt(S_CARB.value   * factor, S_CARB.unit)
+if (factor && S_SUGAR.value  != null) H_SUGAR  = fmt(S_SUGAR.value  * factor, S_SUGAR.unit)
 ---
-<!-- Below is your "component template." It's just HTML, but with
-    some magic sprinkled in to help you build great templates. -->
-<html>
-<head>
-<style>
+<Layout title="Chocolate Bar — Nutrition (FDC)">
+	<h1 style="text-align:center;color:#6b3;">Chocolate Bar — Nutrition</h1>
 
-body,html {
-	height: 100%;
-	margin: 0;
-	font-family: Arial, Helvetica, sans-serif;
-}
+	{error && (
+		<pre style="white-space:pre-wrap;background:#fff3f3;border:1px solid #f3b5b5;padding:.75rem;border-radius:.5rem;max-width:800px;margin:1rem auto;">
+      {error.message}
+    </pre>
+	)}
 
-.banner {
-	width:970px;
-	height:100px;
-	background-color: blue;
-	position: relative;
-}
+	{(!error && food) ? (
+		<div style="max-width:800px;margin:1rem auto;">
+			<div style="background:#f7fbff;border:1px solid #dde8f6;border-radius:.5rem;padding:1rem;">
+				<strong>{food.description || 'Chocolate bar'}</strong>
+				{food.brandOwner && <> — <em>{food.brandOwner}</em></>}
+				<div style="color:#555;margin-top:.25rem;">
+					Serving: {food.servingSize ? `${food.servingSize} ${food.servingSizeUnit || ''}` : 'n/a'}
+				</div>
+			</div>
 
-.bannerText {
-	transform: translate(-50%, -50%);
-	text-align: center;
-	position: absolute;
-	top: 50%;
-	left: 50%;
-	color: white;
-}
+			<h3 style="margin-top:1rem;">Per serving</h3>
+			<ul style="list-style:none;padding:0;margin:.5rem 0 1rem 0;">
+				<li style="display:flex;justify-content:space-between;border-bottom:1px dashed #ddd;padding:.5rem 0;">
+					<span>Energy</span><span>{fmt(S_ENERGY.value, S_ENERGY.unit)}</span>
+				</li>
+				<li style="display:flex;justify-content:space-between;border-bottom:1px dashed #ddd;padding:.5rem 0;">
+					<span>Protein</span><span>{fmt(S_PRO.value, S_PRO.unit)}</span>
+				</li>
+				<li style="display:flex;justify-content:space-between;border-bottom:1px dashed #ddd;padding:.5rem 0;">
+					<span>Total fat</span><span>{fmt(S_FAT.value, S_FAT.unit)}</span>
+				</li>
+				<li style="display:flex;justify-content:space-between;border-bottom:1px dashed #ddd;padding:.5rem 0;">
+					<span>Carbohydrate</span><span>{fmt(S_CARB.value, S_CARB.unit)}</span>
+				</li>
+				<li style="display:flex;justify-content:space-between;border-bottom:1px dashed #ddd;padding:.5rem 0;">
+					<span>Sugars</span><span>{fmt(S_SUGAR.value, S_SUGAR.unit)}</span>
+				</li>
+			</ul>
 
-</style>
-<title>Page Title</title>
-</head>
-<body>
+			{factor && (
+				<>
+					<h3>Per 100 g</h3>
+					<ul style="list-style:none;padding:0;margin:.5rem 0 1rem 0;">
+						<li style="display:flex;justify-content:space-between;border-bottom:1px dashed #ddd;padding:.5rem 0;">
+							<span>Energy</span><span>{H_ENERGY ?? '—'}</span>
+						</li>
+						<li style="display:flex;justify-content:space-between;border-bottom:1px dashed #ddd;padding:.5rem 0;">
+							<span>Protein</span><span>{H_PRO ?? '—'}</span>
+						</li>
+						<li style="display:flex;justify-content:space-between;border-bottom:1px dashed #ddd;padding:.5rem 0;">
+							<span>Total fat</span><span>{H_FAT ?? '—'}</span>
+						</li>
+						<li style="display:flex;justify-content:space-between;border-bottom:1px dashed #ddd;padding:.5rem 0;">
+							<span>Carbohydrate</span><span>{H_CARB ?? '—'}</span>
+						</li>
+						<li style="display:flex;justify-content:space-between;border-bottom:1px dashed #ddd;padding:.5rem 0;">
+							<span>Sugars</span><span>{H_SUGAR ?? '—'}</span>
+						</li>
+					</ul>
+					<p style="color:#666;font-size:.9rem;margin-top:-.5rem;">
+						Per-100 g is calculated from serving size when it’s in grams.
+					</p>
+				</>
+			)}
 
-<div class="banner">
-	<div class="bannerText">
-		<h1 style="font-size:50px">Omnicookbook</h1>
-		<p>Your Omni meal planning service</p>
-	</div>
-</div>
-
-<p>Page Content.</p>
-
-</body>
-</html>
+			<p style="color:#666;font-size:.9rem;">
+				Source: USDA FoodData Central (FDC). Values vary by item. Rebuild to refresh.
+			</p>
+		</div>
+	) : (
+		!error && <p style="text-align:center;">No data at build time.</p>
+	)}
+</Layout>

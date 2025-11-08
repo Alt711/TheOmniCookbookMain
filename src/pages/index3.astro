@@ -1,0 +1,216 @@
+---
+export const prerender = false; // run at request-time on serverless (Netlify/Vercel)
+
+import Layout from '../layouts/Layout.astro'
+import '../styles/style.css' // optional if you have it
+
+/** ---------- helpers ---------- */
+function fmtErr(prefix: string, e: unknown) {
+    const base = e as any
+    return [
+        prefix,
+        base?.message && `message: ${base.message}`,
+        base?.code && `code: ${base.code}`,
+        base?.details && `details: ${base.details}`,
+        base?.hint && `hint: ${base.hint}`,
+        base?.name && `name: ${base.name}`,
+        base?.status && `status: ${base.status}`,
+    ].filter(Boolean).join(' | ')
+}
+
+type FoodDetails = any;
+type NutrEntry = { value: number; unit: string };
+
+const FDC_KEY = import.meta.env.FDC_API_KEY;
+if (!FDC_KEY) throw new Error('Missing FDC_API_KEY (set in env)');
+
+// read query from URL (?q=...)
+const query = (Astro.url.searchParams.get('q') || '').trim() || 'chocolate bar';
+
+let food: FoodDetails | null = null;
+let error: { message: string } | null = null;
+
+try {
+    // 1) search
+    const sUrl = new URL('https://api.nal.usda.gov/fdc/v1/foods/search');
+    sUrl.searchParams.set('api_key', FDC_KEY);
+    sUrl.searchParams.set('query', query);
+    sUrl.searchParams.set('pageSize', '1');
+    sUrl.searchParams.set('dataType', 'Branded,SR Legacy,Survey (FNDDS)');
+
+    const sRes = await fetch(sUrl.toString());
+    const sTxt = await sRes.text();
+    if (!sRes.ok) throw new Error(`Search HTTP ${sRes.status} ${sRes.statusText} | ${sTxt.slice(0,200)}`);
+    const sJson = JSON.parse(sTxt);
+    const top = sJson?.foods?.[0];
+    if (!top?.fdcId) throw new Error(`No results for "${query}"`);
+
+    // 2) details
+    const dUrl = new URL(`https://api.nal.usda.gov/fdc/v1/food/${top.fdcId}`);
+    dUrl.searchParams.set('api_key', FDC_KEY);
+    const dRes = await fetch(dUrl.toString());
+    const dTxt = await dRes.text();
+    if (!dRes.ok) throw new Error(`Details HTTP ${dRes.status} ${dRes.statusText} | ${dTxt.slice(0,200)}`);
+    food = JSON.parse(dTxt);
+} catch (e) {
+    console.error('[fdc]', e);
+    error = { message: fmtErr('Caught', e) };
+}
+
+/** normalize nutrients from both shapes */
+function buildMap(fd: any) {
+    const map = new Map<string, NutrEntry>();
+
+    // A) generic list
+    for (const n of (fd?.foodNutrients ?? [])) {
+        const name = n.nutrientName ?? n.nutrient?.name;
+        const unit = n.unitName ?? n.nutrient?.unitName ?? '';
+        const val  = n.value ?? n.amount;
+        if (name != null && val != null) {
+            map.set(String(name).toLowerCase(), { value: Number(val), unit });
+        }
+    }
+
+    // B) labelNutrients (per serving)
+    const ln = fd?.labelNutrients || {};
+    const addLN = (key: string, pretty: string, unit: string) => {
+        if (ln[key]?.value != null) map.set(pretty.toLowerCase(), { value: Number(ln[key].value), unit })
+    }
+    addLN('calories',      'Energy',                       'kcal');
+    addLN('fat',           'Total lipid (fat)',            'g');
+    addLN('carbohydrates', 'Carbohydrate, by difference',  'g');
+    addLN('sugars',        'Sugars, total including NLEA', 'g');
+    addLN('protein',       'Protein',                      'g');
+
+    return map;
+}
+
+const NMAP = buildMap(food);
+
+function pickAny(names: string[]): { value: number | null; unit: string } {
+    for (const name of names) {
+        const hit = NMAP.get(name.toLowerCase());
+        if (hit) return hit;
+    }
+    return { value: null, unit: '' };
+}
+function fmt(val: number | null, unit: string) {
+    if (val == null) return '—';
+    const fixed = /kcal/i.test(unit) ? val.toFixed(0) : val.toFixed(1);
+    return `${fixed} ${unit}`;
+}
+
+// per serving
+const S_ENERGY = pickAny(['Energy', 'Energy (Atwater General Factors)']);
+const S_PRO    = pickAny(['Protein']);
+const S_FAT    = pickAny(['Total lipid (fat)', 'Total Fat']);
+const S_CARB   = pickAny(['Carbohydrate, by difference', 'Total Carbohydrate']);
+const S_SUGAR  = pickAny(['Sugars, total including NLEA', 'Sugars, total']);
+
+// per 100g (if servingSize in grams)
+const ss = Number(food?.servingSize);
+const ssUnit = String(food?.servingSizeUnit || '');
+const factor = (ss && /g/i.test(ssUnit)) ? (100 / ss) : null;
+
+const H_ENERGY = factor && S_ENERGY.value != null ? fmt(S_ENERGY.value * factor, S_ENERGY.unit) : null;
+const H_PRO    = factor && S_PRO.value    != null ? fmt(S_PRO.value    * factor, S_PRO.unit)   : null;
+const H_FAT    = factor && S_FAT.value    != null ? fmt(S_FAT.value    * factor, S_FAT.unit)   : null;
+const H_CARB   = factor && S_CARB.value   != null ? fmt(S_CARB.value   * factor, S_CARB.unit)  : null;
+const H_SUGAR  = factor && S_SUGAR.value  != null ? fmt(S_SUGAR.value  * factor, S_SUGAR.unit) : null;
+---
+
+<Layout title="OmniCookBook">
+    <!-- top bar -->
+    <nav class="top-bar">
+        <a href="/" class="page-title">
+            <img src="/img/omnilogo.png" alt="logo" height="32" width="32" />
+            OmniCookBook
+            <img src="/img/omnilogo.png" alt="logo" height="32" width="32" style="transform: scaleX(-1);" />
+        </a>
+
+        <div class="right-side-lks">
+            <a href="/" class="home">Home</a>
+            <a href="/about" class="about">About</a>
+            <a href="/contact-us" class="contact-us">Contact us</a>
+        </div>
+    </nav>
+
+    <!-- left/right buttons -->
+    <div class="myfridge-left"><button class="myfridgebutton">My Fridge</button></div>
+    <div class="mealplanner-right"><button class="mealplannerbutton">Meal Planner</button></div>
+
+    <!-- search -->
+    <p class="prompt-index">What are you craving for?</p>
+    <form class="omnisearchbox" method="get" action="/TheOmniCookbookMain/index3">
+        <input class="omnisearchinput" name="q" value={query} placeholder="Search For Recipes or Foods" />
+        <button class="omnisearchbutton" aria-label="Search">🔍</button>
+    </form>
+
+    <!-- results -->
+    {error && (
+            <pre style="white-space:pre-wrap;background:#fff3f3;border:1px solid #f3b5b5;padding:.75rem;border-radius:.5rem;max-width:800px;margin:1rem auto;">
+      {error.message}
+    </pre>
+    )}
+
+    {!error && food && (
+            <div style="max-width:800px;margin:1rem auto;">
+                <div style="background:#f7fbff;border:1px solid #dde8f6;border-radius:.5rem;padding:1rem;">
+                    <strong>{food.description || query}</strong>
+                    {food.brandOwner && <> — <em>{food.brandOwner}</em></>}
+                    <div style="color:#555;margin-top:.25rem;">
+                        Serving: {food.servingSize ? `${food.servingSize} ${food.servingSizeUnit || ''}` : 'n/a'}
+                    </div>
+                </div>
+
+                <h3 style="margin-top:1rem;">Per serving</h3>
+                <ul style="list-style:none;padding:0;margin:.5rem 0 1rem 0;">
+                    <li style="display:flex;justify-content:space-between;border-bottom:1px dashed #ddd;padding:.5rem 0;">
+                        <span>Energy</span><span>{fmt(S_ENERGY.value, S_ENERGY.unit)}</span>
+                    </li>
+                    <li style="display:flex;justify-content:space-between;border-bottom:1px dashed #ddd;padding:.5rem 0;">
+                        <span>Protein</span><span>{fmt(S_PRO.value, S_PRO.unit)}</span>
+                    </li>
+                    <li style="display:flex;justify-content:space-between;border-bottom:1px dashed #ddd;padding:.5rem 0;">
+                        <span>Total fat</span><span>{fmt(S_FAT.value, S_FAT.unit)}</span>
+                    </li>
+                    <li style="display:flex;justify-content:space-between;border-bottom:1px dashed #ddd;padding:.5rem 0;">
+                        <span>Carbohydrate</span><span>{fmt(S_CARB.value, S_CARB.unit)}</span>
+                    </li>
+                    <li style="display:flex;justify-content:space-between;border-bottom:1px dashed #ddd;padding:.5rem 0;">
+                        <span>Sugars</span><span>{fmt(S_SUGAR.value, S_SUGAR.unit)}</span>
+                    </li>
+                </ul>
+
+                {factor && (
+                        <>
+                            <h3>Per 100 g</h3>
+                            <ul style="list-style:none;padding:0;margin:.5rem 0 1rem 0;">
+                                <li style="display:flex;justify-content:space-between;border-bottom:1px dashed #ddd;padding:.5rem 0;">
+                                    <span>Energy</span><span>{H_ENERGY ?? '—'}</span>
+                                </li>
+                                <li style="display:flex;justify-content:space-between;border-bottom:1px dashed #ddd;padding:.5rem 0;">
+                                    <span>Protein</span><span>{H_PRO ?? '—'}</span>
+                                </li>
+                                <li style="display:flex;justify-content:space-between;border-bottom:1px dashed #ddd;padding:.5rem 0;">
+                                    <span>Total fat</span><span>{H_FAT ?? '—'}</span>
+                                </li>
+                                <li style="display:flex;justify-content:space-between;border-bottom:1px dashed #ddd;padding:.5rem 0;">
+                                    <span>Carbohydrate</span><span>{H_CARB ?? '—'}</span>
+                                </li>
+                                <li style="display:flex;justify-content:space-between;border-bottom:1px dashed #ddd;padding:.5rem 0;">
+                                    <span>Sugars</span><span>{H_SUGAR ?? '—'}</span>
+                                </li>
+                            </ul>
+                            <p style="color:#666;font-size:.9rem;margin-top:-.5rem;">
+                                Per-100 g calculated from serving size when provided in grams.
+                            </p>
+                        </>
+                )}
+
+                <p style="color:#666;font-size:.9rem;">
+                    Source: USDA FoodData Central (FDC). Results vary by item.
+                </p>
+            </div>
+    )}
+</Layout>
