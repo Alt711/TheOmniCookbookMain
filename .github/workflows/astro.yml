@@ -35,6 +35,8 @@ jobs:
     env:
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
       SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+      FDC_API_KEY: ${{ secrets.FDC_API_KEY }}        
+      SPOONACULAR: ${{ secrets.SPOONACULAR }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
