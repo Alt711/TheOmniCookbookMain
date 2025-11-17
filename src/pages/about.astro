@@ -1,0 +1,35 @@
+﻿---
+import Layout from '../layouts/Layout.astro';
+import '../styles/style.css';
+---
+
+<Layout title="About | OmniCookBook">
+    <nav class="top-bar">
+        <a href="/" class="page-title">
+            <img src="/img/omnilogo.png" alt="logo" height="32" width="auto" />
+            OmniCookBook
+            <img
+                    src="/img/omnilogo.png"
+                    alt="logo"
+                    height="32"
+                    width="auto"
+                    style="transform: scaleX(-1);"
+            />
+        </a>
+
+        <div class="right-side-lks">
+            <a href="/" class="home">Home</a>
+            <a href="/about" class="about">About</a>
+            <a href="/contact-us" class="contact-us">Contact us</a>
+        </div>
+    </nav>
+
+    <p class="header about">About us</p>
+
+    <div class="about-container">
+        <p class="about-content">
+            Trying to eat healthy, and have a nice organized meal planner while saving money?
+            Don&apos;t worry, we got your healthy backs! Our website is focused on ....
+        </p>
+    </div>
+</Layout>

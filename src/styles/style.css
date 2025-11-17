@@ -98,6 +98,30 @@ body {
 
 
 
+.mealplannerbutton{
+    flex: 0 1 auto;
+    width: 5%;
+    height: 31px;
+    padding: 0 12px;
+    border-right: none;
+    font-size: 18px;
+
+}
+
+
+.view-listbutton{
+    color: white;
+    background-color: #e67e22;
+    cursor: pointer;
+    height: 34px;
+    padding: 0 16px;
+    border: 1px solid #ccc;
+    border-radius: 10%;
+
+}
+
+
+
 .myfridge-left,
 .mealplanner-right{
     display: flex;
@@ -114,6 +138,7 @@ body {
 }
 
 
+.view-listbutton:hover,
 .top-bar a:hover,
 .myfridgebutton:hover,
 .omnisearchbutton:hover,
@@ -180,5 +205,8 @@ body {
     position: relative;
     top: -130px;
 }
+
+
+
 
 
