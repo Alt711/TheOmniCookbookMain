@@ -107,7 +107,7 @@ body {
     width: 21%;
     height: 100%;
     position: fixed;
-    top: 155px;
+    top: 70px;
     right: 0px;
     display: flex;
     flex-direction: column;
@@ -122,7 +122,7 @@ body {
     text-align: center;
     padding: 5px;
     margin: 0;
-    font-size: 25px;
+    font-size: 35px;
     border-bottom: 3px solid #df976e;
     flex-shrink: 0; 
 }
@@ -142,23 +142,94 @@ body {
 }
 
 .meal-planner-detail-bar{
+    width: 79%;
     display: flex;
     justify-content:space-around;
     align-items: left;
     position: fixed;
-    top: 200px;
+    top: 110px;
     left: 0;
-    width: 70%;
     background-color: transparent;
     padding: 0px  0px;
+    height: 100%;
     
 }
+
+.meal-planner-detail-bar p {
+    flex: 1;
+    text-align: center;
+    border-right: 3px solid #df976e;
+    padding: 10px 0;
+    height: 100%;
+}
+
+
+
+.planner-item-days{
+    width: 79%;
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    position: fixed;
+    top: 170px;
+    left: 0;
+    background-color: transparent;
+    padding: 0px;
+    height: auto;
+    border-top: 3px solid #df976e;
+    overflow-y: auto;
+}
+
+.planner-item-days > div {
+    border-right: 1px solid #df976e;
+    padding: 10px;
+    min-height: 100px;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+}
+
+
+.planner-item-days > div p {
+    margin: 5px 0;
+    padding: 15px;
+    border-bottom: 2px solid #df976e;
+    word-break: break-word;
+    max-width: 100%;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 .meal-planner-window{
     width: 79%;
     height: 100%;
     position: fixed;
-    top: 155px;
+    top: 70px;
     left: 0px;
     display: flex;
     flex-direction: column;
@@ -168,18 +239,16 @@ body {
 }
 
 .meal-planner-title{
+    font-weight: bold;
     text-align: left;
     padding: 5px;
     margin: 0;
-    font-size: 25px;
+    font-size: 35px;
     border-bottom: 3px solid #df976e;
     flex-shrink: 0; 
 }
 
 
-.meal-planner-meal-items{
-
-}
 
 
 
