@@ -1,0 +1,70 @@
+---
+export const prerender = false;
+
+import Layout from '../layouts/Layout.astro'
+import '../styles/style.css'
+---
+
+<Layout title="About • OmniCookBook">
+
+    <!-- NAVBAR -->
+    <nav class="top-bar">
+        <a href="/" class="page-title">
+            <img src="/img/omnilogo.png" width="32" height="32"/>
+            OmniCookBook
+            <img src="/img/omnilogo.png" style="transform:scaleX(-1)" width="32" height="32"/>
+        </a>
+
+        <div class="right-side-lks">
+            <a href="/" class="home">Home</a>
+            <a href="/about" class="about">About</a>
+            <a href="/contact-us" class="contact-us">Contact us</a>
+        </div>
+    </nav>
+
+    <!-- Buttons -->
+    <div class="myfridge-left">
+        <a href="/fridge"><button class="myfridgebutton">My Fridge</button></a>
+    </div>
+    <div class="mealplanner-right">
+        <a href="/test"><button class="mealplannerbutton">Meal Planner</button></a>
+    </div>
+
+    <!-- ABOUT CONTENT -->
+    <section style="max-width:800px;margin:2rem auto;padding:1.5rem;
+        background:#f7fbff;border:1px solid #dde8f6;border-radius:.5rem;">
+        
+        <h1 style="margin-bottom:1rem;">About OmniCookBook</h1>
+
+        <p style="font-size:1.05rem;line-height:1.6;">
+            OmniCookBook is a simple but powerful cooking companion designed to make 
+            food planning easier, smarter, and more organized. Whether you're managing 
+            ingredients in your fridge, searching for nutritional information, or 
+            structuring your meals for the week, OmniCookBook brings everything 
+            together into one clean and intuitive interface.
+        </p>
+
+        <p style="font-size:1.05rem;line-height:1.6;margin-top:1rem;">
+            The goal is to help you reduce food waste, discover new foods, track what 
+            you already have, and build better eating habits without any complicated 
+            setup. Everything is stored locally in your browser — meaning your meal 
+            plans and fridge lists are private and stay on your device.
+        </p>
+
+        <h2 style="margin-top:1.5rem;">What You Can Do</h2>
+        <ul style="line-height:1.7;margin-left:1.2rem;">
+            <li>Search nutritional data powered by the official USDA FoodData Central API</li>
+            <li>Build a weekly meal plan customized to your needs</li>
+            <li>Track ingredients in your fridge and use them efficiently</li>
+            <li>Plan meals around what you already have</li>
+            <li>Keep everything organized in a clean, simple UI</li>
+        </ul>
+
+        <p style="font-size:1.05rem;line-height:1.6;margin-top:1.5rem;">
+            This project is an evolving cooking toolkit — more features, more recipe 
+            utilities, and smoother organization are all on the way. Thank you for 
+            trying it out and helping it grow!
+        </p>
+    </section>
+
+</Layout>
