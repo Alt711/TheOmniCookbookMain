@@ -6,7 +6,7 @@ import '../styles/style.css'
 
 /* ---------- helpers ---------- */
 function fmtErr(prefix: string, e: unknown) {
-    const b = e as any
+    const b = e as any;
     return [
         prefix,
         b?.message && `message: ${b.message}`,
@@ -15,7 +15,7 @@ function fmtErr(prefix: string, e: unknown) {
         b?.hint && `hint: ${b.hint}`,
         b?.name && `name: ${b.name}`,
         b?.status && `status: ${b.status}`,
-    ].filter(Boolean).join(' | ')
+    ].filter(Boolean).join(' | ');
 }
 
 type Food = any;
@@ -24,7 +24,6 @@ type Nutr = { value: number, unit: string };
 const KEY = import.meta.env.FDC_API_KEY;
 if (!KEY) throw new Error("Missing FDC_API_KEY");
 
-// read query ?q=
 const query = (Astro.url.searchParams.get("q") || "").trim() || "";
 
 let food: Food | null = null;
@@ -32,7 +31,6 @@ let error: { message: string } | null = null;
 
 if (query) {
     try {
-        // search
         const sUrl = new URL("https://api.nal.usda.gov/fdc/v1/foods/search");
         sUrl.searchParams.set("api_key", KEY);
         sUrl.searchParams.set("query", query);
@@ -46,7 +44,6 @@ if (query) {
         const top = sJson?.foods?.[0];
         if (!top?.fdcId) throw new Error(`No results for '${query}'`);
 
-        // details
         const dUrl = new URL(`https://api.nal.usda.gov/fdc/v1/food/${top.fdcId}`);
         dUrl.searchParams.set("api_key", KEY);
 
@@ -60,11 +57,9 @@ if (query) {
     }
 }
 
-// nutrient normalization
 function buildMap(fd: any) {
     const map = new Map<string, Nutr>();
 
-    // list
     for (const n of (fd?.foodNutrients ?? [])) {
         const nm = n.nutrientName ?? n.nutrient?.name;
         const unit = n.unitName ?? n.nutrient?.unitName ?? "";
@@ -73,7 +68,6 @@ function buildMap(fd: any) {
             map.set(String(nm).toLowerCase(), { value: Number(val), unit });
     }
 
-    // labelNutrients
     const ln = fd?.labelNutrients || {};
     const add = (key: string, pretty: string, unit: string) => {
         if (ln[key]?.value != null)
@@ -91,9 +85,9 @@ function buildMap(fd: any) {
 
 const NMAP = food ? buildMap(food) : new Map();
 
-function pickAny(candidates: string[]) {
-    for (const c of candidates) {
-        const hit = NMAP.get(c.toLowerCase());
+function pickAny(names: string[]) {
+    for (const n of names) {
+        const hit = NMAP.get(n.toLowerCase());
         if (hit) return hit;
     }
     return { value: null, unit: "" };
@@ -104,11 +98,11 @@ function fmt(v: number|null, unit: string) {
     return `${fixed} ${unit}`;
 }
 
-const S_ENERGY = food ? pickAny(["Energy", "Energy (Atwater General Factors)"]) : { value:null, unit:""};
-const S_PRO    = food ? pickAny(["Protein"]) : {value:null, unit:""};
-const S_FAT    = food ? pickAny(["Total lipid (fat)"]) : {value:null, unit:""};
-const S_CARB   = food ? pickAny(["Carbohydrate, by difference"]) : {value:null, unit:""};
-const S_SUGAR  = food ? pickAny(["Sugars, total"]) : {value:null, unit:""};
+const S_ENERGY = food ? pickAny(["Energy"]) : { value:null, unit:""};
+const S_PRO    = food ? pickAny(["Protein"]) : { value:null, unit:""};
+const S_FAT    = food ? pickAny(["Total lipid (fat)"]) : { value:null, unit:""};
+const S_CARB   = food ? pickAny(["Carbohydrate, by difference"]) : { value:null, unit:""};
+const S_SUGAR  = food ? pickAny(["Sugars, total"]) : { value:null, unit:""};
 ---
 
 <Layout title="Meal Planner • OmniCookBook">
@@ -118,7 +112,7 @@ const S_SUGAR  = food ? pickAny(["Sugars, total"]) : {value:null, unit:""};
         <a href="/" class="page-title">
             <img src="/img/omnilogo.png" width="32" height="32"/>
             OmniCookBook
-            <img src="/img/omnilogo.png" style="transform:scaleX(-1)" width="32" height="32"/>
+            <img src="/img/omnilogo.png" width="32" height="32" style="transform:scaleX(-1)"/>
         </a>
 
         <div class="right-side-lks">
@@ -139,12 +133,7 @@ const S_SUGAR  = food ? pickAny(["Sugars, total"]) : {value:null, unit:""};
     <!-- Search -->
     <p class="prompt-index">Plan your meals</p>
     <form class="omnisearchbox" method="get" action="/test">
-        <input 
-            class="omnisearchinput"
-            name="q"
-            value={query}
-            placeholder="Search for foods to add to your meal plan"
-        />
+        <input class="omnisearchinput" name="q" value={query} placeholder="Search for foods to add to your meal plan"/>
         <button class="omnisearchbutton">🔍</button>
     </form>
 
@@ -158,8 +147,8 @@ const S_SUGAR  = food ? pickAny(["Sugars, total"]) : {value:null, unit:""};
         <section id="current-food"
             style="max-width:800px;margin:1rem auto;"
             data-name={food.description || query}
-            data-brand={food.brandOwner || ''}
-        >
+            data-brand={food.brandOwner || ''}>
+
             <div style="background:#f7fbff;border:1px solid #dde8f6;padding:1rem;border-radius:.5rem;">
                 <strong>{food.description || query}</strong>
                 {food.brandOwner && <> — <em>{food.brandOwner}</em></>}
@@ -184,147 +173,177 @@ const S_SUGAR  = food ? pickAny(["Sugars, total"]) : {value:null, unit:""};
                 </li>
             </ul>
 
-            <label for="day-select"><strong>Choose a day:</strong></label>
-            <select id="day-select" style="margin-left:.5rem;padding:.3rem;">
-                <option>Monday</option><option>Tuesday</option><option>Wednesday</option>
-                <option>Thursday</option><option>Friday</option><option>Saturday</option><option>Sunday</option>
-            </select>
-
-            <button 
-                id="add-to-plan"
-                style="margin-left:1rem;padding:.45rem 1rem;border-radius:.4rem;border:1px solid #4caf50;background:#4caf50;color:white;cursor:pointer;">
-                ➕ Add to Meal Plan
-            </button>
         </section>
     )}
 
-    <!-- MEAL PLAN -->
-    <section style="max-width:800px;margin:2rem auto 3rem auto;">
-        <h2>Weekly Meal Plan</h2>
+    <!-- MONTHLY MEAL PLAN -->
+    <section style="max-width:900px;margin:2rem auto 3rem auto;">
+        <h2>Monthly Meal Planner</h2>
         <p style="color:#666;font-size:.9rem;">Stored in your browser (localStorage)</p>
 
-        <div id="mealplan-container" style="margin-top:1rem;"></div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:1rem;">
+            <button id="prev-month" style="padding:.4rem .8rem;border-radius:.4rem;">◀</button>
+            <h3 id="month-title" style="margin:0;"></h3>
+            <button id="next-month" style="padding:.4rem .8rem;border-radius:.4rem;">▶</button>
+        </div>
+
+        <div id="calendar-grid"
+            style="display:grid;grid-template-columns:repeat(7,1fr);gap:.75rem;margin-top:1.5rem;">
+        </div>
 
         <button
             id="clear-plan"
-            style="display:none;margin-top:.8rem;padding:.5rem 1rem;border-radius:.4rem;border:1px solid #c62828;background:#c62828;color:white;cursor:pointer;">
-            🗑 Clear Meal Plan
+            style="display:none;margin-top:1.5rem;padding:.5rem 1rem;border-radius:.4rem;border:1px solid #c62828;background:#c62828;color:white;cursor:pointer;">
+            🗑 Clear Entire Month
         </button>
     </section>
 
-    <!-- Client JS -->
     <script type="module">
-        const KEY = "omni-mealplan";
+        const KEY = "omni-mealplan-monthly";
 
         function loadPlan() {
             const raw = localStorage.getItem(KEY);
-            return raw ? JSON.parse(raw) : {
-                Monday:[], Tuesday:[], Wednesday:[], Thursday:[],
-                Friday:[], Saturday:[], Sunday:[]
-            };
+            return raw ? JSON.parse(raw) : {};
         }
-
         function savePlan(p) {
             localStorage.setItem(KEY, JSON.stringify(p));
         }
 
-        function render() {
-            const box = document.getElementById("mealplan-container");
-            const clearBtn = document.getElementById("clear-plan");
-            const plan = loadPlan();
-            box.innerHTML = "";
+        const today = new Date();
+        let currentMonth = today.getMonth();
+        let currentYear = today.getFullYear();
 
-            let empty = true;
+        const monthNames = [
+            "January","February","March","April","May","June",
+            "July","August","September","October","November","December"
+        ];
 
-            for (const day of Object.keys(plan)) {
-                const items = plan[day];
-
-                const section = document.createElement("div");
-                section.style.marginBottom = "1.2rem";
-
-                const h = document.createElement("h3");
-                h.textContent = day;
-                h.style.marginBottom = ".4rem";
-                section.appendChild(h);
-
-                if (items.length === 0) {
-                    const p = document.createElement("p");
-                    p.textContent = "No meals added.";
-                    p.style.color = "#777";
-                    section.appendChild(p);
-                } else {
-                    empty = false;
-                    for (const meal of items) {
-                        const row = document.createElement("div");
-                        row.style.display = "flex";
-                        row.style.justifyContent = "space-between";
-                        row.style.borderBottom = "1px dashed #ddd";
-                        row.style.padding = ".3rem 0";
-
-                        row.innerHTML = `
-                            <span>${meal.name}${meal.brand ? " — " + meal.brand : ""}</span>
-                        `;
-
-                        const btn = document.createElement("button");
-                        btn.textContent = "Remove";
-                        btn.style.fontSize = ".8rem";
-                        btn.style.cursor = "pointer";
-                        btn.style.border = "1px solid #999";
-                        btn.style.borderRadius = ".4rem";
-                        btn.style.background = "#f5f5f5";
-
-                        btn.onclick = () => {
-                            const p2 = loadPlan();
-                            p2[day] = p2[day].filter(x => x.id !== meal.id);
-                            savePlan(p2);
-                            render();
-                        };
-
-                        row.appendChild(btn);
-                        section.appendChild(row);
-                    }
-                }
-
-                box.appendChild(section);
-            }
-
-            clearBtn.style.display = empty ? "none" : "inline-block";
+        function getDaysInMonth(month, year) {
+            return new Date(year, month + 1, 0).getDate();
         }
 
-        document.addEventListener("DOMContentLoaded", () => {
-            render();
-
-            const btn = document.getElementById("add-to-plan");
-            const food = document.getElementById("current-food");
-            const daySel = document.getElementById("day-select");
+        function renderCalendar() {
+            const plan = loadPlan();
+            const grid = document.getElementById("calendar-grid");
             const clearBtn = document.getElementById("clear-plan");
 
-            if (btn && food) {
-                btn.onclick = () => {
+            grid.innerHTML = "";
+            document.getElementById("month-title").textContent =
+                `${monthNames[currentMonth]} ${currentYear}`;
+
+            const days = getDaysInMonth(currentMonth, currentYear);
+            let anyMeals = false;
+
+            for (let day = 1; day <= days; day++) {
+                const key = `${currentYear}-${currentMonth + 1}-${day}`;
+                const items = plan[key] || [];
+
+                const cell = document.createElement("div");
+                cell.style.border = "1px solid #ddd";
+                cell.style.borderRadius = ".5rem";
+                cell.style.padding = ".5rem";
+                cell.style.background = "#fafafa";
+
+                cell.innerHTML = `
+                    <strong>${day}</strong>
+                    <div style="margin-top:.5rem;font-size:.85rem;color:#444;">
+                        ${
+                            items.length
+                                ? items.map(i => `
+                                    <div style="display:flex;justify-content:space-between;align-items:center;margin:.15rem 0;">
+                                        <span>• ${i.name}${i.brand ? " — " + i.brand : ""}</span>
+                                        <button data-remove="${i.id}"
+                                            style="font-size:.7rem;border:1px solid #999;border-radius:.3rem;background:#f5f5f5;cursor:pointer;">
+                                            Remove
+                                        </button>
+                                    </div>
+                                `).join("")
+                                : `<span style="color:#bbb;">No meals</span>`
+                        }
+                    </div>
+
+                    <button class="add-btn" style="
+                        margin-top:.5rem;padding:.25rem .6rem;font-size:.8rem;
+                        border:1px solid #999;border-radius:.4rem;cursor:pointer;
+                    ">Add</button>
+                `;
+
+                // ADD BUTTON logic
+                cell.querySelector(".add-btn").onclick = () => {
+                    const food = document.getElementById("current-food");
+                    if (!food) {
+                        alert("Search for a food first!");
+                        return;
+                    }
+
                     const name = food.dataset.name;
                     const brand = food.dataset.brand;
                     const id = name + "|" + brand;
 
-                    const plan = loadPlan();
-                    const day = daySel.value;
+                    const p = loadPlan();
+                    p[key] = p[key] || [];
 
-                    // avoid duplicates
-                    if (!plan[day].find(x => x.id === id))
-                        plan[day].push({ id, name, brand });
-
-                    savePlan(plan);
-                    render();
-                };
-            }
-
-            if (clearBtn) {
-                clearBtn.onclick = () => {
-                    if (confirm("Clear your entire meal plan?")) {
-                        localStorage.removeItem(KEY);
-                        render();
+                    if (!p[key].find(x => x.id === id)) {
+                        p[key].push({ id, name, brand });
                     }
+
+                    savePlan(p);
+                    renderCalendar();
                 };
+
+                // REMOVE BUTTON logic
+                cell.querySelectorAll("button[data-remove]").forEach(btn => {
+                    btn.onclick = () => {
+                        const id = btn.dataset.remove;
+
+                        const p = loadPlan();
+                        p[key] = (p[key] || []).filter(x => x.id !== id);
+
+                        savePlan(p);
+                        renderCalendar();
+                    };
+                });
+
+                if (items.length > 0) anyMeals = true;
+
+                grid.appendChild(cell);
             }
-        });
+
+            clearBtn.style.display = anyMeals ? "inline-block" : "none";
+        }
+
+        document.getElementById("prev-month").onclick = () => {
+            currentMonth--;
+            if (currentMonth < 0) {
+                currentMonth = 11;
+                currentYear--;
+            }
+            renderCalendar();
+        };
+
+        document.getElementById("next-month").onclick = () => {
+            currentMonth++;
+            if (currentMonth > 11) {
+                currentMonth = 0;
+                currentYear++;
+            }
+            renderCalendar();
+        };
+
+        document.getElementById("clear-plan").onclick = () => {
+            if (confirm("Clear all meals for this month?")) {
+                const p = loadPlan();
+                const days = getDaysInMonth(currentMonth, currentYear);
+                for (let day = 1; day <= days; day++) {
+                    const key = `${currentYear}-${currentMonth + 1}-${day}`;
+                    delete p[key];
+                }
+                savePlan(p);
+                renderCalendar();
+            }
+        };
+
+        document.addEventListener("DOMContentLoaded", renderCalendar);
     </script>
+
 </Layout>
