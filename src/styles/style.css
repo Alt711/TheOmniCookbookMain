@@ -52,12 +52,15 @@ body {
 }
 
 
-.prompt-index{
+.prompt-index {
     position: relative;
     text-align: center;
     font-size: 45px;
-    top: -120px;
+    top: -180px;
 }
+
+
+
 
 .omnisearchbox{
     display: flex;
