@@ -1,12 +1,12 @@
 ---
-export const prerender = false; // run at request-time on serverless (Netlify/Vercel)
+export const prerender = false;
 
-import Layout from '../layouts/Layout.astro'
-import '../styles/style.css' // keep using your global styles
+import Layout from '../layouts/Layout.astro';
+import '../styles/style.css';
 
 /** ---------- helpers ---------- */
 function fmtErr(prefix: string, e: unknown) {
-    const base = e as any
+    const base = e as any;
     return [
         prefix,
         base?.message && `message: ${base.message}`,
@@ -15,24 +15,33 @@ function fmtErr(prefix: string, e: unknown) {
         base?.hint && `hint: ${base.hint}`,
         base?.name && `name: ${base.name}`,
         base?.status && `status: ${base.status}`,
-    ].filter(Boolean).join(' | ')
+    ].filter(Boolean).join(' | ');
 }
 
 type FoodDetails = any;
 type NutrEntry = { value: number; unit: string };
 
+// Which tab are we on?
+const mode = Astro.url.searchParams.get('mode') === 'recipes' ? 'recipes' : 'ingredients';
+
+// Shared search query
+const query = (Astro.url.searchParams.get('q') || '').trim() || '';
+
 const FDC_KEY = import.meta.env.FDC_API_KEY;
 if (!FDC_KEY) throw new Error('Missing FDC_API_KEY (set in env)');
 
-// read query from URL (?q=...)
-const query = (Astro.url.searchParams.get('q') || '').trim() || '';
-
+// USDA state
 let food: FoodDetails | null = null;
-let error: { message: string } | null = null;
+let foodError: { message: string } | null = null;
 
-if (query) {
+// Spoonacular state
+const SPOON_KEY = import.meta.env.SPOONACULAR || '';
+let recipes: any[] = [];
+let recipeError: { message: string } | null = null;
+
+/** ---------- USDA INGREDIENT LOOKUP ---------- */
+if (mode === 'ingredients' && query) {
     try {
-        // 1) search
         const sUrl = new URL('https://api.nal.usda.gov/fdc/v1/foods/search');
         sUrl.searchParams.set('api_key', FDC_KEY);
         sUrl.searchParams.set('query', query);
@@ -42,20 +51,47 @@ if (query) {
         const sRes = await fetch(sUrl.toString());
         const sTxt = await sRes.text();
         if (!sRes.ok) throw new Error(`Search HTTP ${sRes.status} ${sRes.statusText} | ${sTxt.slice(0,200)}`);
+
         const sJson = JSON.parse(sTxt);
         const top = sJson?.foods?.[0];
         if (!top?.fdcId) throw new Error(`No results for "${query}"`);
 
-        // 2) details
         const dUrl = new URL(`https://api.nal.usda.gov/fdc/v1/food/${top.fdcId}`);
         dUrl.searchParams.set('api_key', FDC_KEY);
+
         const dRes = await fetch(dUrl.toString());
         const dTxt = await dRes.text();
         if (!dRes.ok) throw new Error(`Details HTTP ${dRes.status} ${dRes.statusText} | ${dTxt.slice(0,200)}`);
+
         food = JSON.parse(dTxt);
     } catch (e) {
         console.error('[fdc][fridge]', e);
-        error = { message: fmtErr('Caught', e) };
+        foodError = { message: fmtErr('USDA error', e) };
+    }
+}
+
+/** ---------- SPOONACULAR RECIPE SEARCH ---------- */
+if (mode === 'recipes' && query) {
+    try {
+        if (!SPOON_KEY) {
+            throw new Error('Missing SPOONACULAR env var');
+        }
+
+        const rUrl = new URL('https://api.spoonacular.com/recipes/complexSearch');
+        rUrl.searchParams.set('apiKey', SPOON_KEY);
+        rUrl.searchParams.set('query', query);
+        rUrl.searchParams.set('addRecipeInformation', 'true');
+        rUrl.searchParams.set('number', '8');
+
+        const rRes = await fetch(rUrl.toString());
+        const rTxt = await rRes.text();
+        if (!rRes.ok) throw new Error(`Spoonacular HTTP ${rRes.status} ${rRes.statusText} | ${rTxt.slice(0,200)}`);
+
+        const rJson = JSON.parse(rTxt);
+        recipes = rJson?.results ?? [];
+    } catch (e) {
+        console.error('[spoonacular][fridge]', e);
+        recipeError = { message: fmtErr('Recipe error', e) };
     }
 }
 
@@ -76,8 +112,8 @@ function buildMap(fd: any) {
     // B) labelNutrients (per serving)
     const ln = fd?.labelNutrients || {};
     const addLN = (key: string, pretty: string, unit: string) => {
-        if (ln[key]?.value != null) map.set(pretty.toLowerCase(), { value: Number(ln[key].value), unit })
-    }
+        if (ln[key]?.value != null) map.set(pretty.toLowerCase(), { value: Number(ln[key].value), unit });
+    };
     addLN('calories',      'Energy',                       'kcal');
     addLN('fat',           'Total lipid (fat)',            'g');
     addLN('carbohydrates', 'Carbohydrate, by difference',  'g');
@@ -110,7 +146,7 @@ const S_CARB   = food ? pickAny(['Carbohydrate, by difference', 'Total Carbohydr
 const S_SUGAR  = food ? pickAny(['Sugars, total including NLEA', 'Sugars, total']) : { value: null, unit: '' };
 ---
 
-<Layout title="My Fridge • OmniCookBook">
+<Layout title="Add ingredients to your fridge • OmniCookBook">
     <!-- top bar -->
     <nav class="top-bar">
         <a href="/" class="page-title">
@@ -128,7 +164,6 @@ const S_SUGAR  = food ? pickAny(['Sugars, total including NLEA', 'Sugars, total'
 
     <!-- left/right buttons -->
     <div class="myfridge-left">
-        <!-- current page -->
         <a href="/fridge">
             <button class="myfridgebutton">My Fridge</button>
         </a>
@@ -139,80 +174,225 @@ const S_SUGAR  = food ? pickAny(['Sugars, total including NLEA', 'Sugars, total'
         </a>
     </div>
 
-    <!-- search -->
-    <p class="prompt-index">Add ingredients to your fridge</p>
-    <form class="omnisearchbox" method="get" action="/fridge">
-        <input
-            class="omnisearchinput"
-            name="q"
-            value={query}
-            placeholder="Search for an ingredient (e.g. milk, chicken breast)"
-        />
-        <button class="omnisearchbutton" aria-label="Search">🔍</button>
-    </form>
-
-    <!-- error or result -->
-    {error && (
-        <pre style="white-space:pre-wrap;background:#fff3f3;border:1px solid #f3b5b5;padding:.75rem;border-radius:.5rem;max-width:800px;margin:1rem auto;">
-{error.message}
-        </pre>
-    )}
-
-    {!error && !query && (
-        <p style="max-width:800px;margin:1rem auto;color:#666;font-size:.95rem;">
-            Start by searching for an ingredient above. When you find the correct item, click
-            <strong> “Add to My Fridge”</strong> to save it locally.
-        </p>
-    )}
-
-    {!error && query && !food && (
-        <p style="max-width:800px;margin:1rem auto;color:#666;font-size:.95rem;">
-            No results found for <strong>{query}</strong>.
-        </p>
-    )}
-
-    {!error && food && (
-        <section
-            id="current-food"
-            style="max-width:800px;margin:1rem auto;"
-            data-name={food.description || query}
-            data-brand={food.brandOwner || ''}
-        >
-            <div style="background:#f7fbff;border:1px solid #dde8f6;border-radius:.5rem;padding:1rem;">
-                <strong>{food.description || query}</strong>
-                {food.brandOwner && <> — <em>{food.brandOwner}</em></>}
-                <div style="color:#555;margin-top:.25rem;">
-                    Serving: {food.servingSize ? `${food.servingSize} ${food.servingSizeUnit || ''}` : 'n/a'}
-                </div>
-            </div>
-
-            <h3 style="margin-top:1rem;">Per serving</h3>
-            <ul style="list-style:none;padding:0;margin:.5rem 0 1rem 0;">
-                <li style="display:flex;justify-content:space-between;border-bottom:1px dashed #ddd;padding:.5rem 0;">
-                    <span>Energy</span><span>{fmt(S_ENERGY.value, S_ENERGY.unit)}</span>
-                </li>
-                <li style="display:flex;justify-content:space-between;border-bottom:1px dashed #ddd;padding:.5rem 0;">
-                    <span>Protein</span><span>{fmt(S_PRO.value, S_PRO.unit)}</span>
-                </li>
-                <li style="display:flex;justify-content:space-between;border-bottom:1px dashed #ddd;padding:.5rem 0;">
-                    <span>Total fat</span><span>{fmt(S_FAT.value, S_FAT.unit)}</span>
-                </li>
-                <li style="display:flex;justify-content:space-between;border-bottom:1px dashed #ddd;padding:.5rem 0;">
-                    <span>Carbohydrate</span><span>{fmt(S_CARB.value, S_CARB.unit)}</span>
-                </li>
-                <li style="display:flex;justify-content:space-between;border-bottom:1px dashed #ddd;padding:.5rem 0;">
-                    <span>Sugars</span><span>{fmt(S_SUGAR.value, S_SUGAR.unit)}</span>
-                </li>
-            </ul>
-
-            <button
-                id="add-to-fridge"
-                type="button"
-                style="margin-top:.5rem;padding:.5rem 1rem;border-radius:.5rem;border:1px solid #4caf50;background:#4caf50;color:white;cursor:pointer;"
+    <!-- TABS -->
+    <section class="fridge-tabs-wrapper">
+        <div class="fridge-tabs-bar">
+            <a
+                href="/fridge?mode=ingredients"
+                class={`fridge-tab ${mode === 'ingredients' ? 'active' : ''}`}
             >
-                ➕ Add to My Fridge
-            </button>
-        </section>
+                Ingredients (USDA)
+            </a>
+            <a
+                href="/fridge?mode=recipes"
+                class={`fridge-tab ${mode === 'recipes' ? 'active' : ''}`}
+            >
+                Recipes (Spoonacular)
+            </a>
+        </div>
+    </section>
+
+    <!-- INGREDIENT MODE -->
+    {mode === 'ingredients' && (
+        <>
+            <p class="prompt-index">Add ingredients to your fridge</p>
+            <form class="omnisearchbox" method="get" action="/fridge">
+                <input type="hidden" name="mode" value="ingredients" />
+                <input
+                    class="omnisearchinput"
+                    name="q"
+                    value={query}
+                    placeholder="Search for an ingredient (e.g. milk, chicken breast)"
+                />
+                <button class="omnisearchbutton" aria-label="Search">🔍</button>
+            </form>
+
+            {foodError && (
+                <pre style="white-space:pre-wrap;background:#fff3f3;border:1px solid #f3b5b5;padding:.75rem;border-radius:.5rem;max-width:800px;margin:1rem auto;">
+{foodError.message}
+                </pre>
+            )}
+
+            {!foodError && !query && (
+                <p style="max-width:800px;margin:1rem auto;color:#666;font-size:.95rem;">
+                    Start by searching for an ingredient above. When you find the correct item, click
+                    <strong> “Add to My Fridge”</strong> to save it locally.
+                </p>
+            )}
+
+            {!foodError && query && !food && (
+                <p style="max-width:800px;margin:1rem auto;color:#666;font-size:.95rem;">
+                    No ingredient results found for <strong>{query}</strong>.
+                </p>
+            )}
+
+            {!foodError && food && (
+                <section
+                    id="current-food"
+                    style="max-width:800px;margin:1rem auto;"
+                    data-name={food.description || query}
+                    data-brand={food.brandOwner || ''}
+                    data-kind="ingredient"
+                >
+                    <div style="background:#f7fbff;border:1px solid #dde8f6;border-radius:.5rem;padding:1rem;">
+                        <strong>{food.description || query}</strong>
+                        {food.brandOwner && <> — <em>{food.brandOwner}</em></>}
+                        <div style="color:#555;margin-top:.25rem;">
+                            Serving: {food.servingSize ? `${food.servingSize} ${food.servingSizeUnit || ''}` : 'n/a'}
+                        </div>
+                    </div>
+
+                    <h3 style="margin-top:1rem;">Per serving</h3>
+                    <ul style="list-style:none;padding:0;margin:.5rem 0 1rem 0;">
+                        <li style="display:flex;justify-content:space-between;border-bottom:1px dashed #ddd;padding:.5rem 0;">
+                            <span>Energy</span><span>{fmt(S_ENERGY.value, S_ENERGY.unit)}</span>
+                        </li>
+                        <li style="display:flex;justify-content:space-between;border-bottom:1px dashed #ddd;padding:.5rem 0;">
+                            <span>Protein</span><span>{fmt(S_PRO.value, S_PRO.unit)}</span>
+                        </li>
+                        <li style="display:flex;justify-content:space-between;border-bottom:1px dashed #ddd;padding:.5rem 0;">
+                            <span>Total fat</span><span>{fmt(S_FAT.value, S_FAT.unit)}</span>
+                        </li>
+                        <li style="display:flex;justify-content:space-between;border-bottom:1px dashed #ddd;padding:.5rem 0;">
+                            <span>Carbohydrate</span><span>{fmt(S_CARB.value, S_CARB.unit)}</span>
+                        </li>
+                        <li style="display:flex;justify-content:space-between;border-bottom:1px dashed #ddd;padding:.5rem 0;">
+                            <span>Sugars</span><span>{fmt(S_SUGAR.value, S_SUGAR.unit)}</span>
+                        </li>
+                    </ul>
+
+                    <button
+                        id="add-to-fridge"
+                        type="button"
+                        style="margin-top:.5rem;padding:.5rem 1rem;border-radius:.5rem;border:1px solid #4caf50;background:#4caf50;color:white;cursor:pointer;"
+                    >
+                        ➕ Add Ingredient to My Fridge
+                    </button>
+                </section>
+            )}
+        </>
+    )}
+
+    <!-- RECIPE MODE -->
+    {mode === 'recipes' && (
+        <>
+            <p class="prompt-index">Find recipes to cook</p>
+            <form class="omnisearchbox" method="get" action="/fridge">
+                <input type="hidden" name="mode" value="recipes" />
+                <input
+                    class="omnisearchinput"
+                    name="q"
+                    value={query}
+                    placeholder="Search for recipes (e.g. chicken alfredo, stir fry)"
+                />
+                <button class="omnisearchbutton" aria-label="Search">🔍</button>
+            </form>
+
+            {recipeError && (
+                <pre style="white-space:pre-wrap;background:#fff3f3;border:1px solid #f3b5b5;padding:.75rem;border-radius:.5rem;max-width:800px;margin:1rem auto;">
+{recipeError.message}
+                </pre>
+            )}
+
+            {!recipeError && !query && (
+                <p style="max-width:800px;margin:1rem auto;color:#666;font-size:.95rem;">
+                    Search for recipes powered by Spoonacular. You can add recipes to your fridge and optionally
+                    schedule them directly into your meal planner.
+                </p>
+            )}
+
+            {!recipeError && query && recipes.length === 0 && (
+                <p style="max-width:800px;margin:1rem auto;color:#666;font-size:.95rem;">
+                    No recipes found for <strong>{query}</strong>.
+                </p>
+            )}
+
+            {!recipeError && recipes.length > 0 && (
+                <section style="max-width:800px;margin:1.5rem auto 1rem auto;">
+                    {recipes.map((r) => (
+                        <article
+                            class="recipe-card"
+                            data-recipe-id={r.id}
+                            data-recipe-title={r.title}
+                            data-kind="recipe"
+                            style="border:1px solid #dde8f6;border-radius:.75rem;padding:1rem;margin-bottom:1rem;background:#f8fbff;"
+                        >
+                            <div style="display:flex;gap:1rem;">
+                                {r.image && (
+                                    <img
+                                        src={r.image}
+                                        alt={r.title}
+                                        style="width:96px;height:96px;object-fit:cover;border-radius:.5rem;border:1px solid #ddd;"
+                                        loading="lazy"
+                                    />
+                                )}
+                                <div style="flex:1;">
+                                    <h3 style="margin:.1rem 0 .3rem 0;">{r.title}</h3>
+                                    <p style="margin:0;color:#555;font-size:.9rem;">
+                                        {r.readyInMinutes && <>⏱ {r.readyInMinutes} min&nbsp;&nbsp;</>}
+                                        {r.servings && <>🍽 Serves {r.servings}</>}
+                                    </p>
+
+                                    <details style="margin-top:.4rem;">
+                                        <summary style="cursor:pointer;font-size:.9rem;">Ingredients</summary>
+                                        <ul style="margin:.3rem 0 0 1rem;font-size:.9rem;">
+                                            {(r.extendedIngredients ?? []).map((ing: any) => (
+                                                <li>{ing.original}</li>
+                                            ))}
+                                            {(!r.extendedIngredients || r.extendedIngredients.length === 0) && (
+                                                <li style="color:#777;">No ingredient list available.</li>
+                                            )}
+                                        </ul>
+                                    </details>
+
+                                    <details style="margin-top:.4rem;">
+                                        <summary style="cursor:pointer;font-size:.9rem;">Instructions</summary>
+                                        <ol style="margin:.3rem 0 0 1.2rem;font-size:.9rem;">
+                                            {(r.analyzedInstructions?.[0]?.steps ?? []).map((st: any) => (
+                                                <li>{st.step}</li>
+                                            ))}
+                                            {(!r.analyzedInstructions || !r.analyzedInstructions[0]?.steps?.length) && (
+                                                <li style="color:#777;">No detailed instructions available.</li>
+                                            )}
+                                        </ol>
+                                    </details>
+                                </div>
+                            </div>
+
+                            <div style="margin-top:.6rem;display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;">
+                                <button
+                                    type="button"
+                                    class="recipe-add-fridge"
+                                    style="padding:.4rem .9rem;border-radius:.5rem;border:1px solid #4caf50;background:#4caf50;color:white;cursor:pointer;font-size:.85rem;"
+                                >
+                                    ➕ Add Recipe to My Fridge
+                                </button>
+
+                                <div style="display:flex;align-items:center;gap:.25rem;font-size:.85rem;">
+                                    <label>
+                                        Plan for:
+                                        <input
+                                            type="date"
+                                            class="recipe-plan-date"
+                                            data-recipe-id={r.id}
+                                            style="margin-left:.25rem;padding:.15rem .25rem;font-size:.85rem;"
+                                        />
+                                    </label>
+                                    <button
+                                        type="button"
+                                        class="recipe-add-plan"
+                                        data-recipe-id={r.id}
+                                        style="padding:.3rem .8rem;border-radius:.5rem;border:1px solid #1976d2;background:#1976d2;color:white;cursor:pointer;font-size:.8rem;"
+                                    >
+                                        ➕ Add to Meal Planner
+                                    </button>
+                                </div>
+                            </div>
+                        </article>
+                    ))}
+                </section>
+            )}
+        </>
     )}
 
     <!-- fridge inventory -->
@@ -231,9 +411,9 @@ const S_SUGAR  = food ? pickAny(['Sugars, total including NLEA', 'Sugars, total'
         </button>
     </section>
 
-    <!-- tiny client-side script to manage localStorage fridge -->
     <script type="module">
         const STORAGE_KEY = 'omni-fridge-items';
+        const MP_KEY = 'omni-mealplan-monthly';
 
         function loadFridge() {
             try {
@@ -266,11 +446,14 @@ const S_SUGAR  = food ? pickAny(['Sugars, total including NLEA', 'Sugars, total'
                 const li = document.createElement('li');
                 li.style.display = 'flex';
                 li.style.justifyContent = 'space-between';
+                li.style.alignItems = 'center';
                 li.style.borderBottom = '1px dashed #ddd';
                 li.style.padding = '.4rem 0';
 
                 const left = document.createElement('span');
-                left.textContent = item.name + (item.brand ? ` — ${item.brand}` : '');
+                const isRecipe = item.kind === 'recipe';
+                const tag = isRecipe ? '📖 ' : '🧺 ';
+                left.textContent = tag + item.name + (item.brand ? ` — ${item.brand}` : '');
 
                 const removeBtn = document.createElement('button');
                 removeBtn.textContent = 'Remove';
@@ -294,23 +477,39 @@ const S_SUGAR  = food ? pickAny(['Sugars, total including NLEA', 'Sugars, total'
             if (clearBtn) clearBtn.style.display = 'inline-block';
         }
 
+        // meal planner helpers (monthly)
+        function loadPlan() {
+            try {
+                const raw = localStorage.getItem(MP_KEY);
+                return raw ? JSON.parse(raw) : {};
+            } catch {
+                return {};
+            }
+        }
+
+        function savePlan(p) {
+            localStorage.setItem(MP_KEY, JSON.stringify(p));
+        }
+
         document.addEventListener('DOMContentLoaded', () => {
-            const addBtn = document.getElementById('add-to-fridge');
+            // initial fridge render
+            renderFridge();
+
+            const addIngredientBtn = document.getElementById('add-to-fridge');
             const currentFood = document.getElementById('current-food');
             const clearBtn = document.getElementById('clear-fridge');
 
-            // initial render
-            renderFridge();
-
-            if (addBtn && currentFood) {
-                addBtn.addEventListener('click', () => {
+            // add ingredient (USDA) to fridge
+            if (addIngredientBtn && currentFood) {
+                addIngredientBtn.addEventListener('click', () => {
                     const name = currentFood.dataset.name || 'Unknown item';
                     const brand = currentFood.dataset.brand || '';
-                    const id = name + '|' + brand;
+                    const kind = currentFood.dataset.kind || 'ingredient';
+                    const id = kind + '|' + name + '|' + brand;
 
                     const items = loadFridge();
                     if (!items.find((x) => x.id === id)) {
-                        items.push({ id, name, brand });
+                        items.push({ id, name, brand, kind });
                         saveFridge(items);
                         renderFridge();
                     } else {
@@ -319,6 +518,7 @@ const S_SUGAR  = food ? pickAny(['Sugars, total including NLEA', 'Sugars, total'
                 });
             }
 
+            // clear fridge
             if (clearBtn) {
                 clearBtn.addEventListener('click', () => {
                     if (confirm('Clear all items from your fridge?')) {
@@ -327,6 +527,91 @@ const S_SUGAR  = food ? pickAny(['Sugars, total including NLEA', 'Sugars, total'
                     }
                 });
             }
+
+            // add recipes to fridge
+            document.querySelectorAll('.recipe-add-fridge').forEach((btn) => {
+                btn.addEventListener('click', () => {
+                    const card = btn.closest('.recipe-card');
+                    if (!card) return;
+                    const name = card.dataset.recipeTitle || 'Unknown recipe';
+                    const recipeId = card.dataset.recipeId || '';
+                    const kind = card.dataset.kind || 'recipe';
+                    const id = 'recipe|' + recipeId;
+
+                    const items = loadFridge();
+                    if (!items.find((x) => x.id === id)) {
+                        items.push({ id, name, brand: '', kind });
+                        saveFridge(items);
+                        renderFridge();
+                    } else {
+                        alert('This recipe is already in your fridge.');
+                    }
+                });
+            });
+
+            // add recipes directly to meal planner (monthly)
+            document.querySelectorAll('.recipe-add-plan').forEach((btn) => {
+                btn.addEventListener('click', () => {
+                    const recipeId = btn.dataset.recipeId;
+                    const card = btn.closest('.recipe-card');
+                    if (!card || !recipeId) return;
+
+                    const name = card.dataset.recipeTitle || 'Unknown recipe';
+                    const dateInput = card.querySelector('.recipe-plan-date');
+                    const dateVal = dateInput?.value;
+
+                    if (!dateVal) {
+                        alert('Please choose a date first.');
+                        return;
+                    }
+
+                    // dateVal is YYYY-MM-DD, convert to key used by monthly planner
+                    const [y, m, d] = dateVal.split('-');
+                    const key = `${Number(y)}-${Number(m)}-${Number(d)}`;
+
+                    const plan = loadPlan();
+                    plan[key] = plan[key] || [];
+
+                    const id = 'recipe|' + recipeId;
+                    if (!plan[key].find((x) => x.id === id)) {
+                        plan[key].push({ id, name, brand: 'Recipe' });
+                        savePlan(plan);
+                        alert('Recipe added to your meal planner for ' + dateVal);
+                    } else {
+                        alert('This recipe is already on your plan for that day.');
+                    }
+                });
+            });
         });
     </script>
+
+    <style>
+        .fridge-tabs-wrapper {
+            max-width: 800px;
+            margin: 2.5rem auto 1.75rem auto; /* nice gap under page <h1> */
+        }
+        .fridge-tabs-bar {
+            display: flex;
+            gap: 1rem;
+            background: #ffffff;
+            padding: 1rem 1.2rem;
+            border-radius: 0.75rem;
+            border: 1px solid #ccc;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.10);
+        }
+        .fridge-tab {
+            padding: 0.6rem 1.1rem;
+            border-radius: 0.5rem;
+            background: #ededed;
+            color: #333;
+            font-weight: 500;
+            text-decoration: none;
+            font-size: 0.95rem;
+        }
+        .fridge-tab.active {
+            background: #4caf50;
+            color: #ffffff;
+            font-weight: 700;
+        }
+    </style>
 </Layout>

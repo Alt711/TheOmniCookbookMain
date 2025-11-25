@@ -1,0 +1,604 @@
+---
+export const prerender = false;
+
+import Layout from "../layouts/Layout.astro";
+import "../styles/style.css";
+
+/* ---------- helpers ---------- */
+function fmtErr(prefix: string, e: unknown) {
+  const base = e as any;
+  return [
+    prefix,
+    base?.message && `message: ${base.message}`,
+    base?.code && `code: ${base.code}`,
+    base?.details && `details: ${base.details}`,
+    base?.hint && `hint: ${base.hint}`,
+    base?.name && `name: ${base.name}`,
+    base?.status && `status: ${base.status}`,
+  ]
+    .filter(Boolean)
+    .join(" | ");
+}
+
+type NutrEntry = { value: number; unit: string };
+const mode =
+  Astro.url.searchParams.get("mode") === "recipes"
+    ? "recipes"
+    : "ingredients";
+
+const query = (Astro.url.searchParams.get("q") || "").trim() || "";
+
+/* USDA Keys */
+const FDC_KEY = import.meta.env.FDC_API_KEY;
+if (!FDC_KEY) throw new Error("Missing FDC_API_KEY");
+
+/* Spoonacular Keys */
+const SPOON_KEY = import.meta.env.SPOONACULAR || "";
+
+/* State */
+let food: any = null;
+let foodError: { message: string } | null = null;
+
+let recipes: any[] = [];
+let recipeError: { message: string } | null = null;
+
+/* ---------- USDA Lookup ---------- */
+if (mode === "ingredients" && query) {
+  try {
+    const sUrl = new URL("https://api.nal.usda.gov/fdc/v1/foods/search");
+    sUrl.searchParams.set("api_key", FDC_KEY);
+    sUrl.searchParams.set("query", query);
+    sUrl.searchParams.set("pageSize", "1");
+
+    const sRes = await fetch(sUrl.toString());
+    const sTxt = await sRes.text();
+    if (!sRes.ok) throw new Error(`Search HTTP ${sRes.status} | ${sTxt}`);
+
+    const sJson = JSON.parse(sTxt);
+    const top = sJson?.foods?.[0];
+    if (!top?.fdcId) throw new Error(`No results for "${query}"`);
+
+    const dUrl = new URL(
+      `https://api.nal.usda.gov/fdc/v1/food/${top.fdcId}`
+    );
+    dUrl.searchParams.set("api_key", FDC_KEY);
+    const dRes = await fetch(dUrl.toString());
+    const dTxt = await dRes.text();
+    if (!dRes.ok) throw new Error(`Details HTTP ${dRes.status} | ${dTxt}`);
+
+    food = JSON.parse(dTxt);
+  } catch (e) {
+    foodError = { message: fmtErr("USDA error", e) };
+  }
+}
+
+/* ---------- Spoonacular Search ---------- */
+if (mode === "recipes" && query) {
+  try {
+    if (!SPOON_KEY) throw new Error("Missing SPOONACULAR env var");
+
+    const rUrl = new URL(
+      "https://api.spoonacular.com/recipes/complexSearch"
+    );
+    rUrl.searchParams.set("apiKey", SPOON_KEY);
+    rUrl.searchParams.set("query", query);
+    rUrl.searchParams.set("addRecipeInformation", "true");
+    rUrl.searchParams.set("number", "8");
+
+    const rRes = await fetch(rUrl.toString());
+    const rTxt = await rRes.text();
+    if (!rRes.ok) throw new Error(`Spoonacular HTTP ${rRes.status} | ${rTxt}`);
+
+    const rJson = JSON.parse(rTxt);
+    recipes = rJson?.results ?? [];
+  } catch (e) {
+    recipeError = { message: fmtErr("Recipe error", e) };
+  }
+}
+
+/* ---------- Nutrient map helpers ---------- */
+function buildMap(fd: any) {
+  const map = new Map<string, NutrEntry>();
+  for (const n of fd?.foodNutrients ?? []) {
+    const name = n.nutrientName ?? n.nutrient?.name;
+    const unit = n.unitName ?? n.nutrient?.unitName ?? "";
+    const val = n.value ?? n.amount;
+    if (name && val != null) {
+      map.set(String(name).toLowerCase(), { value: Number(val), unit });
+    }
+  }
+  const ln = fd?.labelNutrients || {};
+  const addLN = (key: string, pretty: string, unit: string) => {
+    if (ln[key]?.value != null)
+      map.set(pretty.toLowerCase(), {
+        value: Number(ln[key].value),
+        unit,
+      });
+  };
+  addLN("calories", "Energy", "kcal");
+  addLN("fat", "Total lipid (fat)", "g");
+  addLN("carbohydrates", "Carbohydrate", "g");
+  addLN("sugars", "Sugars", "g");
+  addLN("protein", "Protein", "g");
+
+  return map;
+}
+
+const NMAP = food ? buildMap(food) : new Map();
+function pick(names: string[]) {
+  for (const n of names) {
+    const hit = NMAP.get(n.toLowerCase());
+    if (hit) return hit;
+  }
+  return { value: null, unit: "" };
+}
+function fmt(val: number | null, unit: string) {
+  if (val == null) return "—";
+  const fixed = unit === "kcal" ? val.toFixed(0) : val.toFixed(1);
+  return `${fixed} ${unit}`;
+}
+
+const S_ENERGY = food ? pick(["Energy"]) : { value: null, unit: "" };
+const S_PRO = food ? pick(["Protein"]) : { value: null, unit: "" };
+const S_FAT = food ? pick(["Total lipid (fat)"]) : { value: null, unit: "" };
+const S_CARB = food ? pick(["Carbohydrate"]) : { value: null, unit: "" };
+const S_SUGAR = food ? pick(["Sugars"]) : { value: null, unit: "" };
+---
+
+<Layout title="Fridge • OmniCookBook">
+  <nav class="top-bar">
+    <a href="/" class="page-title">
+      <img src="/img/omnilogo.png" height="32" width="32" />
+      OmniCookBook
+      <img
+        src="/img/omnilogo.png"
+        height="32"
+        width="32"
+        style="transform: scaleX(-1)"
+      />
+    </a>
+
+    <div class="right-side-lks">
+      <a href="/">Home</a>
+      <a href="/about">About</a>
+      <a href="/contact-us">Contact us</a>
+    </div>
+  </nav>
+
+  <!-- Fix: ALL CONTENT gets pushed down cleanly -->
+  <div class="fridge-wrapper">
+    <!-- Left/Right Buttons -->
+    <div class="myfridge-left">
+      <a href="/fridge"><button class="myfridgebutton">My Fridge</button></a>
+    </div>
+
+    <div class="mealplanner-right">
+      <a href="/test"><button class="mealplannerbutton">Meal Planner</button></a>
+    </div>
+
+    <!-- Tabs -->
+    <section class="fridge-tabs-wrapper">
+      <div class="fridge-tabs-bar">
+        <a
+          href="/fridge?mode=ingredients"
+          class={`fridge-tab ${mode === "ingredients" ? "active" : ""}`}
+          >Ingredients (USDA)</a
+        >
+        <a
+          href="/fridge?mode=recipes"
+          class={`fridge-tab ${mode === "recipes" ? "active" : ""}`}
+          >Recipes (Spoonacular)</a
+        >
+      </div>
+    </section>
+
+    <!-- Ingredients Mode -->
+    {mode === "ingredients" && (
+      <>
+        <p class="prompt-index">Add ingredients to your fridge</p>
+
+        <form class="omnisearchbox" method="get" action="/fridge">
+          <input type="hidden" name="mode" value="ingredients" />
+          <input
+            class="omnisearchinput"
+            name="q"
+            value={query}
+            placeholder="Search for an ingredient..."
+          />
+          <button class="omnisearchbutton">🔍</button>
+        </form>
+
+        {foodError && (
+          <pre class="api-error">{foodError.message}</pre>
+        )}
+
+        {!foodError && !query && (
+          <p class="info-line">
+            Search for an ingredient above.
+          </p>
+        )}
+
+        {!foodError && query && !food && (
+          <p class="info-line">
+            No ingredient results found for <strong>{query}</strong>.
+          </p>
+        )}
+
+        {!foodError && food && (
+          <section id="current-food" class="food-card">
+            <div class="food-title-box">
+              <strong>{food.description || query}</strong>
+              {food.brandOwner && <> — <em>{food.brandOwner}</em></>}
+            </div>
+
+            <h3>Per serving</h3>
+            <ul class="nutr-list">
+              <li><span>Energy</span><span>{fmt(S_ENERGY.value, S_ENERGY.unit)}</span></li>
+              <li><span>Protein</span><span>{fmt(S_PRO.value, S_PRO.unit)}</span></li>
+              <li><span>Total fat</span><span>{fmt(S_FAT.value, S_FAT.unit)}</span></li>
+              <li><span>Carbohydrate</span><span>{fmt(S_CARB.value, S_CARB.unit)}</span></li>
+              <li><span>Sugars</span><span>{fmt(S_SUGAR.value, S_SUGAR.unit)}</span></li>
+            </ul>
+
+            <button id="add-to-fridge" class="add-btn">
+              ➕ Add Ingredient to My Fridge
+            </button>
+          </section>
+        )}
+      </>
+    )}
+
+    <!-- Recipe Mode -->
+    {mode === "recipes" && (
+      <>
+        <p class="prompt-index">Find recipes to cook</p>
+
+        <form class="omnisearchbox" method="get" action="/fridge">
+          <input type="hidden" name="mode" value="recipes" />
+          <input
+            class="omnisearchinput"
+            name="q"
+            value={query}
+            placeholder="Search for recipes..."
+          />
+          <button class="omnisearchbutton">🔍</button>
+        </form>
+
+        {recipeError && (
+          <pre class="api-error">{recipeError.message}</pre>
+        )}
+
+        {!recipeError && !query && (
+          <p class="info-line">Search for recipes powered by Spoonacular.</p>
+        )}
+
+        {!recipeError && query && recipes.length === 0 && (
+          <p class="info-line">
+            No recipes found for <strong>{query}</strong>.
+          </p>
+        )}
+
+        {!recipeError && recipes.length > 0 && (
+          <section class="recipe-results">
+            {recipes.map((r) => (
+              <article class="recipe-card" data-recipe-id={r.id} data-recipe-title={r.title}>
+                <div class="recipe-flex">
+                  {r.image && (
+                    <img src={r.image} alt={r.title} class="recipe-img" />
+                  )}
+                  <div class="recipe-body">
+                    <h3>{r.title}</h3>
+                    <p class="recipe-meta">
+                      {r.readyInMinutes && <>⏱ {r.readyInMinutes} min&nbsp;</>}
+                      {r.servings && <>🍽 Serves {r.servings}</>}
+                    </p>
+
+                    <details><summary>Ingredients</summary>
+                      <ul>
+                        {(r.extendedIngredients ?? []).map((ing: any) => (
+                          <li>{ing.original}</li>
+                        ))}
+                      </ul>
+                    </details>
+
+                    <details><summary>Instructions</summary>
+                      <ol>
+                        {(r.analyzedInstructions?.[0]?.steps ?? []).map((st) => (
+                          <li>{st.step}</li>
+                        ))}
+                      </ol>
+                    </details>
+                  </div>
+                </div>
+
+                <div class="recipe-actions">
+                  <button type="button" class="recipe-add-fridge">
+                    ➕ Add Recipe to My Fridge
+                  </button>
+
+                  <label>
+                    Plan for:
+                    <input type="date" class="recipe-plan-date" data-recipe-id={r.id} />
+                  </label>
+
+                  <button type="button" class="recipe-add-plan" data-recipe-id={r.id}>
+                    ➕ Add to Meal Planner
+                  </button>
+                </div>
+              </article>
+            ))}
+          </section>
+        )}
+      </>
+    )}
+
+    <!-- Fridge List -->
+    <section class="fridge-list-section">
+      <h2>My Fridge</h2>
+      <p class="list-note">Stored locally in your browser.</p>
+      <ul id="fridge-list"></ul>
+
+      <button id="clear-fridge" class="clear-btn">🗑 Clear My Fridge</button>
+    </section>
+  </div>
+
+  <!-- JS -->
+  <script type="module">
+    const STORAGE_KEY = "omni-fridge-items";
+    const MP_KEY = "omni-mealplan-monthly";
+
+    function loadFridge() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        return raw ? JSON.parse(raw) : [];
+      } catch {
+        return [];
+      }
+    }
+    function saveFridge(items) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+    }
+
+    function renderFridge() {
+      const list = document.getElementById("fridge-list");
+      const clearBtn = document.getElementById("clear-fridge");
+      const items = loadFridge();
+
+      list.innerHTML = "";
+
+      if (!items.length) {
+        list.innerHTML = '<li style="color:#666;">Your fridge is empty.</li>';
+        clearBtn.style.display = "none";
+        return;
+      }
+
+      items.forEach((it) => {
+        const li = document.createElement("li");
+        li.style.display = "flex";
+        li.style.justifyContent = "space-between";
+
+        const left = document.createElement("span");
+        left.textContent =
+          (it.kind === "recipe" ? "📖 " : "🧺 ") +
+          it.name +
+          (it.brand ? " — " + it.brand : "");
+
+        const rm = document.createElement("button");
+        rm.textContent = "Remove";
+        rm.style.fontSize = ".8rem";
+
+        rm.onclick = () => {
+          saveFridge(items.filter((x) => x.id !== it.id));
+          renderFridge();
+        };
+
+        li.append(left, rm);
+        list.append(li);
+      });
+
+      clearBtn.style.display = "inline-block";
+    }
+
+    /* Init */
+    document.addEventListener("DOMContentLoaded", () => {
+      renderFridge();
+
+      /* Add ingredients */
+      const addBtn = document.getElementById("add-to-fridge");
+      const foodCard = document.getElementById("current-food");
+
+      if (addBtn && foodCard) {
+        addBtn.onclick = () => {
+          const name = foodCard.dataset.name || "Unknown";
+          const brand = foodCard.dataset.brand || "";
+          const id = "ingredient|" + name + "|" + brand;
+
+          const items = loadFridge();
+          if (!items.find((x) => x.id === id)) {
+            items.push({ id, name, brand, kind: "ingredient" });
+            saveFridge(items);
+            renderFridge();
+          } else alert("Already exists.");
+        };
+      }
+
+      /* Clear fridge */
+      document.getElementById("clear-fridge").onclick = () => {
+        if (confirm("Clear everything?")) {
+          saveFridge([]);
+          renderFridge();
+        }
+      };
+
+      /* Add recipe to fridge */
+      document.querySelectorAll(".recipe-add-fridge").forEach((btn) => {
+        btn.onclick = () => {
+          const card = btn.closest(".recipe-card");
+          const id = "recipe|" + card.dataset.recipeId;
+          const name = card.dataset.recipeTitle;
+
+          const items = loadFridge();
+          if (!items.find((x) => x.id === id)) {
+            items.push({ id, name, brand: "", kind: "recipe" });
+            saveFridge(items);
+            renderFridge();
+          } else alert("Already exists.");
+        };
+      });
+
+      /* Add recipe to planner */
+      document.querySelectorAll(".recipe-add-plan").forEach((btn) => {
+        btn.onclick = () => {
+          const card = btn.closest(".recipe-card");
+          const recipeId = card.dataset.recipeId;
+          const name = card.dataset.recipeTitle;
+
+          const dateInput = card.querySelector(".recipe-plan-date");
+          const val = dateInput.value;
+          if (!val) return alert("Pick date first.");
+
+          const [y, m, d] = val.split("-");
+          const key = `${+y}-${+m}-${+d}`;
+
+          const plan = JSON.parse(localStorage.getItem(MP_KEY) || "{}");
+          plan[key] = plan[key] || [];
+
+          const id = "recipe|" + recipeId;
+
+          if (!plan[key].find((x) => x.id === id)) {
+            plan[key].push({ id, name, brand: "Recipe" });
+            localStorage.setItem(MP_KEY, JSON.stringify(plan));
+            alert("Added.");
+          } else alert("Already on this date.");
+        };
+      });
+    });
+  </script>
+
+  <!-- Page-specific CSS -->
+  <style>
+    /* The magic fix */
+    .fridge-wrapper {
+      margin-top: 165px; /* clean spacing under fixed nav + buttons */
+      padding-bottom: 2rem;
+    }
+
+    .prompt-index {
+      text-align: center;
+      font-size: 42px;
+      margin: 20px 0;
+    }
+
+    .api-error {
+      background: #ffe3e3;
+      border: 1px solid #d99;
+      padding: 1rem;
+      max-width: 800px;
+      margin: 1rem auto;
+    }
+
+    .info-line {
+      max-width: 800px;
+      margin: 1rem auto;
+      color: #555;
+      text-align: center;
+    }
+
+    .food-card {
+      max-width: 800px;
+      margin: 2rem auto;
+      background: #f7fbff;
+      border: 1px solid #cbdaf2;
+      padding: 1rem;
+      border-radius: 0.6rem;
+    }
+
+    .nutr-list {
+      list-style: none;
+      padding: 0;
+    }
+    .nutr-list li {
+      display: flex;
+      justify-content: space-between;
+      border-bottom: 1px dashed #ddd;
+      padding: 0.4rem 0;
+    }
+
+    .add-btn {
+      margin-top: 0.7rem;
+      padding: 0.5rem 1rem;
+      background: #4caf50;
+      color: white;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+
+    .recipe-results {
+      max-width: 800px;
+      margin: 2rem auto;
+    }
+
+    .recipe-card {
+      border: 1px solid #ccc;
+      background: #f8fbff;
+      padding: 1rem;
+      border-radius: 0.7rem;
+      margin-bottom: 1.2rem;
+    }
+
+    .recipe-flex {
+      display: flex;
+      gap: 1rem;
+    }
+
+    .recipe-img {
+      width: 96px;
+      height: 96px;
+      object-fit: cover;
+      border-radius: 0.5rem;
+      border: 1px solid #ccc;
+    }
+
+    .recipe-actions {
+      margin-top: 0.5rem;
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .recipe-add-fridge,
+    .recipe-add-plan {
+      background: #4caf50;
+      color: white;
+      padding: 0.4rem 0.8rem;
+      border-radius: 0.4rem;
+      cursor: pointer;
+    }
+
+    .recipe-add-plan {
+      background: #1976d2;
+    }
+
+    .fridge-list-section {
+      max-width: 800px;
+      margin: 3rem auto;
+    }
+
+    #fridge-list li {
+      padding: 0.4rem 0;
+      border-bottom: 1px dashed #ccc;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .clear-btn {
+      margin-top: 1rem;
+      background: #c62828;
+      color: white;
+      padding: 0.4rem 1rem;
+      border-radius: 0.4rem;
+      cursor: pointer;
+    }
+  </style>
+</Layout>
