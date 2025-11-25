@@ -1,0 +1,254 @@
+body {
+    font-family: 'Times New Roman', Times, serif;
+    background: transparent;
+    overflow: hidden;
+    /* background: rgb(243, 193, 146); */
+
+}
+
+
+.fridge-window{
+    width: 21%;
+    height: 100%;
+    position: fixed;
+    top: 155px;
+    left: 0px;
+    display: flex;
+    flex-direction: column;
+    background: rgb(243, 193, 146);
+    border-right: 3px solid #df976e;
+    border-top: 3px solid #df976e;
+}
+
+.dropdn-header,
+.my-fridge-header{
+    text-align: center;
+    padding: 5px;
+    margin: 0;
+    font-size: 25px;
+    border-bottom: 3px solid #df976e;
+    flex-shrink: 0; 
+}
+
+
+.my-fridge-items{
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: repeating-linear-gradient(
+        rgb(243, 176, 113) 0px 50px,
+        rgb(243, 193, 146) 50px 100px
+    );
+
+    border-left: 4px solid transparent;
+    overflow-y: auto;
+}
+
+
+.dropdn-window{
+    width: 21%;
+    height: 100%;
+    position: fixed;
+    top: 155px;
+    right: 0px;
+    display: flex;
+    flex-direction: column;
+    background: rgb(243, 193, 146);
+    border-left: 3px solid #df976e;
+    border-top: 3px solid #df976e;
+
+}
+
+
+.dropdn-header{
+    text-align: center;
+    padding: 5px;
+    margin: 0;
+    font-size: 25px;
+    border-bottom: 3px solid #df976e;
+    flex-shrink: 0; 
+}
+
+
+.dropdn-items{
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: repeating-linear-gradient(
+        rgb(243, 176, 113) 0px 50px,
+        rgb(243, 193, 146)50px 100px
+    );
+
+    border-left: 4px solid transparent;
+    overflow-y: auto;
+}
+
+
+
+/*--------------------- meal planner parts -------------------*/
+
+
+
+.main-planner-window{
+    display: flex;
+    justify-content:space-between;
+    align-items: center;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    background-color: transparent;
+    padding: 10px  20px;
+    min-height: 50px;
+    
+}
+
+.planner-my-meals-window{
+    width: 21%;
+    height: 100%;
+    position: fixed;
+    top: 70px;
+    right: 0px;
+    display: flex;
+    flex-direction: column;
+    background: rgb(243, 193, 146);
+    border-left: 3px solid #df976e;
+    border-top: 3px solid #df976e;
+
+}
+
+
+.planner-my-meals-header{
+    text-align: center;
+    padding: 5px;
+    margin: 0;
+    font-size: 35px;
+    border-bottom: 3px solid #df976e;
+    flex-shrink: 0; 
+}
+
+
+.planner-my-meals-items{
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: repeating-linear-gradient(
+        rgb(243, 176, 113) 0px 50px,
+        rgb(243, 193, 146)50px 100px
+    );
+
+    border-left: 4px solid transparent;
+    overflow-y: auto;
+}
+
+.meal-planner-detail-bar{
+    width: 79%;
+    display: flex;
+    justify-content:space-around;
+    align-items: left;
+    position: fixed;
+    top: 110px;
+    left: 0;
+    background-color: transparent;
+    padding: 0px  0px;
+    height: 100%;
+    
+}
+
+.meal-planner-detail-bar p {
+    flex: 1;
+    text-align: center;
+    border-right: 3px solid #df976e;
+    padding: 10px 0;
+    height: 100%;
+}
+
+
+
+.planner-item-days{
+    width: 79%;
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    position: fixed;
+    top: 170px;
+    left: 0;
+    background-color: transparent;
+    padding: 0px;
+    height: auto;
+    border-top: 3px solid #df976e;
+    overflow-y: auto;
+}
+
+.planner-item-days > div {
+    border-right: 1px solid #df976e;
+    padding: 10px;
+    min-height: 100px;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+}
+
+
+.planner-item-days > div p {
+    margin: 5px 0;
+    padding: 15px;
+    border-bottom: 2px solid #df976e;
+    word-break: break-word;
+    max-width: 100%;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+.meal-planner-window{
+    width: 79%;
+    height: 100%;
+    position: fixed;
+    top: 70px;
+    left: 0px;
+    display: flex;
+    flex-direction: column;
+    background: rgb(243, 193, 146);
+    border-right: 3px solid #df976e;
+    border-top: 3px solid #df976e;
+}
+
+.meal-planner-title{
+    font-weight: bold;
+    text-align: left;
+    padding: 5px;
+    margin: 0;
+    font-size: 35px;
+    border-bottom: 3px solid #df976e;
+    flex-shrink: 0; 
+}
+
+
+
+
+
