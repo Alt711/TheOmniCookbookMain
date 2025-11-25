@@ -27,6 +27,10 @@ const mode = Astro.url.searchParams.get('mode') === 'recipes' ? 'recipes' : 'ing
 // Shared search query
 const query = (Astro.url.searchParams.get('q') || '').trim() || '';
 
+// Budget filter (recipes only)
+const budgetParam = (Astro.url.searchParams.get('budget') || '').trim();
+const budget = budgetParam ? Number(budgetParam) : null;
+
 const FDC_KEY = import.meta.env.FDC_API_KEY;
 if (!FDC_KEY) throw new Error('Missing FDC_API_KEY (set in env)');
 
@@ -144,6 +148,15 @@ const S_PRO    = food ? pickAny(['Protein']) : { value: null, unit: '' };
 const S_FAT    = food ? pickAny(['Total lipid (fat)', 'Total Fat']) : { value: null, unit: '' };
 const S_CARB   = food ? pickAny(['Carbohydrate, by difference', 'Total Carbohydrate']) : { value: null, unit: '' };
 const S_SUGAR  = food ? pickAny(['Sugars, total including NLEA', 'Sugars, total']) : { value: null, unit: '' };
+
+// budget-filtered recipes
+const filteredRecipes =
+    budget && !Number.isNaN(budget)
+        ? recipes.filter((r: any) =>
+            typeof r.pricePerServing === 'number' &&
+            r.pricePerServing / 100 <= budget
+        )
+        : recipes;
 ---
 
 <Layout title="Add ingredients to your fridge • OmniCookBook">
@@ -288,6 +301,34 @@ const S_SUGAR  = food ? pickAny(['Sugars, total including NLEA', 'Sugars, total'
                 <button class="omnisearchbutton" aria-label="Search">🔍</button>
             </form>
 
+            {/* BUDGET DROPDOWN UNDER SEARCH BAR */}
+            <div style="max-width:800px;margin:0.5rem auto 0 auto;">
+                <form
+                    class="budget-filter"
+                    method="get"
+                    action="/fridge"
+                    style="display:flex;align-items:center;gap:.5rem;font-size:.9rem;"
+                >
+                    <input type="hidden" name="mode" value="recipes" />
+                    <input type="hidden" name="q" value={query} />
+                    <label for="budget-select" style="color:#444;">
+                        Budget per recipe:
+                    </label>
+                    <select
+                        id="budget-select"
+                        name="budget"
+                        onchange="this.form.submit()"
+                        style="padding:.25rem .5rem;border-radius:.35rem;border:1px solid #ccc;font-size:.9rem;"
+                    >
+                        <option value="" selected={!budgetParam}>No budget filter</option>
+                        <option value="5" selected={budget === 5}>Under $5</option>
+                        <option value="10" selected={budget === 10}>Under $10</option>
+                        <option value="15" selected={budget === 15}>Under $15</option>
+                        <option value="20" selected={budget === 20}>Under $20</option>
+                    </select>
+                </form>
+            </div>
+
             {recipeError && (
                 <pre style="white-space:pre-wrap;background:#fff3f3;border:1px solid #f3b5b5;padding:.75rem;border-radius:.5rem;max-width:800px;margin:1rem auto;">
 {recipeError.message}
@@ -301,15 +342,24 @@ const S_SUGAR  = food ? pickAny(['Sugars, total including NLEA', 'Sugars, total'
                 </p>
             )}
 
+            {/* No recipes at all for this query */}
             {!recipeError && query && recipes.length === 0 && (
                 <p style="max-width:800px;margin:1rem auto;color:#666;font-size:.95rem;">
                     No recipes found for <strong>{query}</strong>.
                 </p>
             )}
 
-            {!recipeError && recipes.length > 0 && (
+            {/* Recipes exist but none are under this budget */}
+            {!recipeError && query && recipes.length > 0 && filteredRecipes.length === 0 && budget && (
+                <p style="max-width:800px;margin:1rem auto;color:#666;font-size:.95rem;">
+                    We found recipes for <strong>{query}</strong>, but none are under your budget of
+                    {' '}${budget.toFixed(0)} per recipe. Try increasing your budget or clearing the filter.
+                </p>
+            )}
+
+            {!recipeError && filteredRecipes.length > 0 && (
                 <section style="max-width:800px;margin:1.5rem auto 1rem auto;">
-                    {recipes.map((r) => (
+                    {filteredRecipes.map((r) => (
                         <article
                             class="recipe-card"
                             data-recipe-id={r.id}
@@ -331,6 +381,12 @@ const S_SUGAR  = food ? pickAny(['Sugars, total including NLEA', 'Sugars, total'
                                     <p style="margin:0;color:#555;font-size:.9rem;">
                                         {r.readyInMinutes && <>⏱ {r.readyInMinutes} min&nbsp;&nbsp;</>}
                                         {r.servings && <>🍽 Serves {r.servings}</>}
+                                        {typeof r.pricePerServing === 'number' && (
+                                            <>
+                                                &nbsp;&nbsp;💲
+                                                {(r.pricePerServing / 100).toFixed(2)} per serving
+                                            </>
+                                        )}
                                     </p>
 
                                     <details style="margin-top:.4rem;">
