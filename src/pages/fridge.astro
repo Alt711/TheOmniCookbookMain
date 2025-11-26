@@ -85,6 +85,8 @@ if (mode === 'recipes' && query) {
         rUrl.searchParams.set('apiKey', SPOON_KEY);
         rUrl.searchParams.set('query', query);
         rUrl.searchParams.set('addRecipeInformation', 'true');
+        // NEW: ask Spoonacular to include nutrition so we can get macros
+        rUrl.searchParams.set('addRecipeNutrition', 'true');
         rUrl.searchParams.set('number', '8');
 
         const rRes = await fetch(rUrl.toString());
@@ -246,6 +248,12 @@ const filteredRecipes =
                     data-name={food.description || query}
                     data-brand={food.brandOwner || ''}
                     data-kind="ingredient"
+                    <!-- NEW: store ingredient macros on the element so JS can save them -->
+                    data-calories={S_ENERGY.value ?? ''}
+                    data-protein={S_PRO.value ?? ''}
+                    data-carbs={S_CARB.value ?? ''}
+                    data-fat={S_FAT.value ?? ''}
+                    data-sugar={S_SUGAR.value ?? ''}
                 >
                     <div style="background:#f7fbff;border:1px solid #dde8f6;border-radius:.5rem;padding:1rem;">
                         <strong>{food.description || query}</strong>
@@ -359,12 +367,34 @@ const filteredRecipes =
 
             {!recipeError && filteredRecipes.length > 0 && (
                 <section style="max-width:800px;margin:1.5rem auto 1rem auto;">
-                    {filteredRecipes.map((r) => (
+                    {filteredRecipes.map((r) => {
+                        // NEW: pull nutrition macros off Spoonacular result if present
+                        const nutrients = (r.nutrition && Array.isArray(r.nutrition.nutrients))
+                            ? r.nutrition.nutrients
+                            : [];
+                        const getAmount = (label: string) => {
+                            const hit = nutrients.find((n: any) =>
+                                String(n.name).toLowerCase() === label.toLowerCase()
+                            );
+                            return hit?.amount ?? '';
+                        };
+                        const cal  = getAmount('Calories');
+                        const pro  = getAmount('Protein');
+                        const fat  = getAmount('Fat');
+                        const carb = getAmount('Carbohydrates');
+                        const sug  = getAmount('Sugar');
+
+                        return (
                         <article
                             class="recipe-card"
                             data-recipe-id={r.id}
                             data-recipe-title={r.title}
                             data-kind="recipe"
+                            data-calories={cal}
+                            data-protein={pro}
+                            data-carbs={carb}
+                            data-fat={fat}
+                            data-sugar={sug}
                             style="border:1px solid #dde8f6;border-radius:.75rem;padding:1rem;margin-bottom:1rem;background:#f8fbff;"
                         >
                             <div style="display:flex;gap:1rem;">
@@ -388,6 +418,17 @@ const filteredRecipes =
                                             </>
                                         )}
                                     </p>
+
+                                    {/* optional quick macro preview under title if nutrition exists */}
+                                    {(cal || pro || carb || fat || sug) && (
+                                        <p style="margin:.25rem 0 0 0;color:#444;font-size:.8rem;">
+                                            {cal && <>🔥 {cal.toFixed ? cal.toFixed(0) : cal} kcal&nbsp;&nbsp;</>}
+                                            {pro && <>💪 P {pro.toFixed ? pro.toFixed(1) : pro} g&nbsp;&nbsp;</>}
+                                            {carb && <>🍞 C {carb.toFixed ? carb.toFixed(1) : carb} g&nbsp;&nbsp;</>}
+                                            {fat && <>🧈 F {fat.toFixed ? fat.toFixed(1) : fat} g&nbsp;&nbsp;</>}
+                                            {sug && <>🍬 Sugars {sug.toFixed ? sug.toFixed(1) : sug} g</>}
+                                        </p>
+                                    )}
 
                                     <details style="margin-top:.4rem;">
                                         <summary style="cursor:pointer;font-size:.9rem;">Ingredients</summary>
@@ -445,7 +486,7 @@ const filteredRecipes =
                                 </div>
                             </div>
                         </article>
-                    ))}
+                    )})}
                 </section>
             )}
         </>
@@ -506,10 +547,45 @@ const filteredRecipes =
                 li.style.borderBottom = '1px dashed #ddd';
                 li.style.padding = '.4rem 0';
 
-                const left = document.createElement('span');
+                // LEFT SIDE: name + optional macros
+                const left = document.createElement('div');
+                left.style.display = 'flex';
+                left.style.flexDirection = 'column';
+
                 const isRecipe = item.kind === 'recipe';
                 const tag = isRecipe ? '📖 ' : '🧺 ';
-                left.textContent = tag + item.name + (item.brand ? ` — ${item.brand}` : '');
+
+                const title = document.createElement('span');
+                title.textContent = tag + item.name + (item.brand ? ` — ${item.brand}` : '');
+                left.appendChild(title);
+
+                // NEW: show macros under each item if present
+                if (item.macros) {
+                    const m = item.macros;
+                    const macrosLine = document.createElement('span');
+                    macrosLine.style.fontSize = '.8rem';
+                    macrosLine.style.color = '#555';
+
+                    const toNum = (v) => (typeof v === 'number' && !Number.isNaN(v) ? v : null);
+
+                    const cals = toNum(m.calories);
+                    const pro  = toNum(m.protein);
+                    const carb = toNum(m.carbs);
+                    const fat  = toNum(m.fat);
+                    const sug  = toNum(m.sugar);
+
+                    const parts = [];
+                    if (cals != null) parts.push(`${cals.toFixed ? cals.toFixed(0) : cals} kcal`);
+                    if (pro  != null) parts.push(`P ${pro.toFixed ? pro.toFixed(1) : pro} g`);
+                    if (carb != null) parts.push(`C ${carb.toFixed ? carb.toFixed(1) : carb} g`);
+                    if (fat  != null) parts.push(`F ${fat.toFixed ? fat.toFixed(1) : fat} g`);
+                    if (sug  != null) parts.push(`Sugars ${sug.toFixed ? sug.toFixed(1) : sug} g`);
+
+                    if (parts.length) {
+                        macrosLine.textContent = parts.join(' • ');
+                        left.appendChild(macrosLine);
+                    }
+                }
 
                 const removeBtn = document.createElement('button');
                 removeBtn.textContent = 'Remove';
@@ -563,9 +639,18 @@ const filteredRecipes =
                     const kind = currentFood.dataset.kind || 'ingredient';
                     const id = kind + '|' + name + '|' + brand;
 
+                    // NEW: pull macros off data- attributes
+                    const macros = {
+                        calories: currentFood.dataset.calories ? Number(currentFood.dataset.calories) : null,
+                        protein:  currentFood.dataset.protein  ? Number(currentFood.dataset.protein)  : null,
+                        carbs:    currentFood.dataset.carbs    ? Number(currentFood.dataset.carbs)    : null,
+                        fat:      currentFood.dataset.fat      ? Number(currentFood.dataset.fat)      : null,
+                        sugar:    currentFood.dataset.sugar    ? Number(currentFood.dataset.sugar)    : null,
+                    };
+
                     const items = loadFridge();
                     if (!items.find((x) => x.id === id)) {
-                        items.push({ id, name, brand, kind });
+                        items.push({ id, name, brand, kind, macros });
                         saveFridge(items);
                         renderFridge();
                     } else {
@@ -594,9 +679,18 @@ const filteredRecipes =
                     const kind = card.dataset.kind || 'recipe';
                     const id = 'recipe|' + recipeId;
 
+                    // NEW: macros from Spoonacular card data- attributes
+                    const macros = {
+                        calories: card.dataset.calories ? Number(card.dataset.calories) : null,
+                        protein:  card.dataset.protein  ? Number(card.dataset.protein)  : null,
+                        carbs:    card.dataset.carbs    ? Number(card.dataset.carbs)    : null,
+                        fat:      card.dataset.fat      ? Number(card.dataset.fat)      : null,
+                        sugar:    card.dataset.sugar    ? Number(card.dataset.sugar)    : null,
+                    };
+
                     const items = loadFridge();
                     if (!items.find((x) => x.id === id)) {
-                        items.push({ id, name, brand: '', kind });
+                        items.push({ id, name, brand: '', kind, macros });
                         saveFridge(items);
                         renderFridge();
                     } else {
@@ -629,8 +723,18 @@ const filteredRecipes =
                     plan[key] = plan[key] || [];
 
                     const id = 'recipe|' + recipeId;
+
+                    // NEW: macros carried into meal planner entry
+                    const macros = {
+                        calories: card.dataset.calories ? Number(card.dataset.calories) : null,
+                        protein:  card.dataset.protein  ? Number(card.dataset.protein)  : null,
+                        carbs:    card.dataset.carbs    ? Number(card.dataset.carbs)    : null,
+                        fat:      card.dataset.fat      ? Number(card.dataset.fat)      : null,
+                        sugar:    card.dataset.sugar    ? Number(card.dataset.sugar)    : null,
+                    };
+
                     if (!plan[key].find((x) => x.id === id)) {
-                        plan[key].push({ id, name, brand: 'Recipe' });
+                        plan[key].push({ id, name, brand: 'Recipe', macros });
                         savePlan(plan);
                         alert('Recipe added to your meal planner for ' + dateVal);
                     } else {
