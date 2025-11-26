@@ -3,7 +3,7 @@ body {
     background: rgb(243, 193, 146);
     margin: 80px;
     padding-top: 120px;
-    overflow: hidden;
+    overflow: auto;
 }
 
 
