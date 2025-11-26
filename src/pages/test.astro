@@ -182,8 +182,8 @@ const S_SUGAR  = food ? pickAny(["Sugars, total"]) : { value:null, unit:""};
         </section>
     )}
 
-    <!-- MONTHLY MEAL PLAN -->
-    <section style="max-width:900px;margin:2rem auto 3rem auto;">
+    <!-- MONTHLY MEAL PLAN + MACRO SIDEBAR -->
+    <section style="max-width:1150px;margin:2rem auto 3rem auto;">
         <h2>Monthly Meal Planner</h2>
         <p style="color:#666;font-size:.9rem;">Stored in your browser (localStorage)</p>
 
@@ -193,19 +193,86 @@ const S_SUGAR  = food ? pickAny(["Sugars, total"]) : { value:null, unit:""};
             <button id="next-month" style="padding:.4rem .8rem;border-radius:.4rem;">▶</button>
         </div>
 
-        <div id="calendar-grid"
-            style="display:grid;grid-template-columns:repeat(7,1fr);gap:.75rem;margin-top:1.5rem;">
+        <div
+            style="
+                display:flex;
+                align-items:flex-start;
+                gap:2rem;
+                margin-top:1.5rem;
+                flex-wrap:nowrap;
+                overflow-x:auto;
+            "
+        >
+            <!-- Calendar column with scroll -->
+            <div
+                id="calendar-column"
+                style="
+                    flex:1;
+                    min-width:0;
+                    max-height:80vh;
+                    overflow-y:auto;
+                    padding-right:.75rem;
+                "
+            >
+                <div
+                    id="calendar-grid"
+                    style="
+                        display:grid;
+                        grid-template-columns:repeat(7,1fr);
+                        gap:.75rem;
+                    "
+                ></div>
+
+                <button
+                    id="clear-plan"
+                    style="
+                        display:none;
+                        margin-top:1.5rem;
+                        padding:.5rem 1rem;
+                        border-radius:.4rem;
+                        border:1px solid #c62828;
+                        background:#c62828;
+                        color:white;
+                        cursor:pointer;
+                    "
+                >
+                    🗑 Clear Entire Month
+                </button>
+            </div>
+
+            <!-- Macro sidebar with its own scroll -->
+            <aside
+                id="macro-sidebar"
+                style="
+                    width:350px;
+                    max-width:100%;
+                    background:#ffffff;
+                    border:1px solid #ddd;
+                    border-radius:.75rem;
+                    padding:1rem;
+                    box-shadow:0 2px 6px rgba(0,0,0,0.06);
+                    position:sticky;
+                    top:6rem;
+                    overflow-y:auto;
+                    max-height:80vh;
+                "
+            >
+                <h3 style="margin:0 0 .35rem 0;">Macro Overview</h3>
+                <p style="color:#666;font-size:.8rem;margin:0 0 .75rem 0;">
+                    Based on items with tracked macros only.
+                </p>
+
+                <div id="sidebar-selected-day" style="font-size:.9rem;"></div>
+
+                <hr style="margin:1rem 0;border:none;border-top:1px solid #eee;" />
+
+                <div id="sidebar-week-summary" style="font-size:.9rem;"></div>
+
+                <hr style="margin:1rem 0;border:none;border-top:1px solid #eee;" />
+
+                <div id="sidebar-month-summary" style="font-size:.9rem;"></div>
+            </aside>
         </div>
-
-        <!-- WEEKLY + MONTHLY MACRO SUMMARY -->
-        <div id="week-summary" style="max-width:900px;margin-top:1.5rem;font-size:.9rem;"></div>
-        <div id="month-summary" style="max-width:900px;margin-top:1rem;font-size:.9rem;"></div>
-
-        <button
-            id="clear-plan"
-            style="display:none;margin-top:1.5rem;padding:.5rem 1rem;border-radius:.4rem;border:1px solid #c62828;background:#c62828;color:white;cursor:pointer;">
-            🗑 Clear Entire Month
-        </button>
     </section>
 
     <script type="module">
@@ -222,6 +289,9 @@ const S_SUGAR  = food ? pickAny(["Sugars, total"]) : { value:null, unit:""};
         const today = new Date();
         let currentMonth = today.getMonth();
         let currentYear = today.getFullYear();
+
+        // which date is currently selected in the calendar (for sidebar)
+        let selectedDateKey = null;
 
         const monthNames = [
             "January","February","March","April","May","June",
@@ -259,12 +329,82 @@ const S_SUGAR  = food ? pickAny(["Sugars, total"]) : { value:null, unit:""};
             return `Calories: ${kcal} kcal · Protein: ${p} g · Fat: ${f} g · Carbs: ${c} g · Sugar: ${s} g`;
         }
 
+        function updateSidebar(selectedKey, dayTotalsMap, weekTotals, monthTotals, days, firstDow) {
+            const selEl   = document.getElementById("sidebar-selected-day");
+            const weekEl  = document.getElementById("sidebar-week-summary");
+            const monthEl = document.getElementById("sidebar-month-summary");
+            if (!selEl || !weekEl || !monthEl) return;
+
+            // Selected day panel
+            if (!selectedKey) {
+                selEl.innerHTML = `
+                    <p style="color:#666;font-size:.85rem;margin:0;">
+                        Click a day on the calendar to see its macros.
+                    </p>
+                `;
+                weekEl.innerHTML = `
+                    <p style="color:#666;font-size:.85rem;margin:0;">
+                        Once a day is selected, its week's totals will appear here.
+                    </p>
+                `;
+            } else {
+                const dt = dayTotalsMap[selectedKey] || emptyTotals();
+                const parts = selectedKey.split("-");
+                const y = Number(parts[0]);
+                const m = Number(parts[1]);
+                const d = Number(parts[2]);
+                const label = `${monthNames[m - 1]} ${d}, ${y}`;
+
+                selEl.innerHTML = `
+                    <h3 style="margin:0 0 .35rem 0;font-size:1rem;">Selected day</h3>
+                    <div style="font-size:.85rem;color:#444;">
+                        <div><strong>${label}</strong></div>
+                        <div style="margin-top:.25rem;">${formatTotals(dt)}</div>
+                    </div>
+                `;
+
+                // week for this selected day
+                const dayIndex = d - 1;
+                const weekIndex = Math.floor((firstDow + dayIndex) / 7);
+                const wt = weekTotals[weekIndex] || emptyTotals();
+
+                weekEl.innerHTML = `
+                    <h3 style="margin:0 0 .3rem 0;font-size:.95rem;">Week ${weekIndex + 1}</h3>
+                    <p style="color:#666;font-size:.8rem;margin:0 0 .25rem 0;">
+                        Total for this week (tracked items only).
+                    </p>
+                    <div style="font-size:.85rem;">${formatTotals(wt)}</div>
+                `;
+            }
+
+            // Monthly summary (always shown)
+            const totalDays = days || 1;
+            const avgTotals = {
+                calories: monthTotals.calories / totalDays,
+                protein:  monthTotals.protein  / totalDays,
+                fat:      monthTotals.fat      / totalDays,
+                carbs:    monthTotals.carbs    / totalDays,
+                sugars:   monthTotals.sugars   / totalDays,
+            };
+
+            monthEl.innerHTML = `
+                <h3 style="margin:0 0 .3rem 0;font-size:.95rem;">Monthly Totals</h3>
+                <p style="color:#666;font-size:.8rem;margin:0 0 .3rem 0;">
+                    Totals and per-day averages for this month (tracked items only).
+                </p>
+                <div style="font-size:.85rem;">
+                    <div><strong>Total:</strong> ${formatTotals(monthTotals)}</div>
+                    <div style="margin-top:.15rem;">
+                        <strong>Per-day avg:</strong> ${formatTotals(avgTotals)}
+                    </div>
+                </div>
+            `;
+        }
+
         function renderCalendar() {
             const plan = loadPlan();
             const grid = document.getElementById("calendar-grid");
             const clearBtn = document.getElementById("clear-plan");
-            const weekSummaryEl = document.getElementById("week-summary");
-            const monthSummaryEl = document.getElementById("month-summary");
 
             grid.innerHTML = "";
             document.getElementById("month-title").textContent =
@@ -277,6 +417,22 @@ const S_SUGAR  = food ? pickAny(["Sugars, total"]) : { value:null, unit:""};
             const weekTotals = [];
             const firstDow = new Date(currentYear, currentMonth, 1).getDay(); // 0=Sun
 
+            // map dateKey -> totals for the sidebar
+            const dayTotalsMap = {};
+
+            // initialize default selected day if none yet
+            if (!selectedDateKey) {
+                const todayInMonth = (
+                    today.getFullYear() === currentYear &&
+                    today.getMonth() === currentMonth
+                );
+                if (todayInMonth) {
+                    selectedDateKey = `${currentYear}-${currentMonth + 1}-${today.getDate()}`;
+                } else {
+                    selectedDateKey = `${currentYear}-${currentMonth + 1}-1`;
+                }
+            }
+
             for (let day = 1; day <= days; day++) {
                 const key = `${currentYear}-${currentMonth + 1}-${day}`;
                 const items = plan[key] || [];
@@ -288,6 +444,7 @@ const S_SUGAR  = food ? pickAny(["Sugars, total"]) : { value:null, unit:""};
                         addTotals(dayTotals, item.macros);
                     }
                 }
+                dayTotalsMap[key] = dayTotals;
                 addTotals(monthTotals, dayTotals);
 
                 const weekIndex = Math.floor((firstDow + (day - 1)) / 7);
@@ -303,6 +460,13 @@ const S_SUGAR  = food ? pickAny(["Sugars, total"]) : { value:null, unit:""};
                 cell.style.flexDirection = "column";
                 cell.style.justifyContent = "space-between";
                 cell.style.minHeight = "130px";
+                cell.style.cursor = "pointer";
+
+                if (key === selectedDateKey) {
+                    cell.style.borderColor = "#4caf50";
+                    cell.style.boxShadow = "0 0 0 2px rgba(76,175,80,0.25)";
+                    cell.style.background = "#f5fff6";
+                }
 
                 const itemsHtml = items.length
                     ? items.map(i => `
@@ -316,14 +480,15 @@ const S_SUGAR  = food ? pickAny(["Sugars, total"]) : { value:null, unit:""};
                     `).join("")
                     : `<span style="color:#bbb;">No meals</span>`;
 
+                const dayTotalsVal = dayTotals;
                 const dayMacrosText =
-                    (dayTotals.calories === 0 &&
-                     dayTotals.protein === 0 &&
-                     dayTotals.fat === 0 &&
-                     dayTotals.carbs === 0 &&
-                     dayTotals.sugars === 0)
+                    (dayTotalsVal.calories === 0 &&
+                     dayTotalsVal.protein === 0 &&
+                     dayTotalsVal.fat === 0 &&
+                     dayTotalsVal.carbs === 0 &&
+                     dayTotalsVal.sugars === 0)
                         ? `<span style="color:#aaa;font-size:.75rem;">Macros: (no tracked items)</span>`
-                        : `<span style="color:#444;font-size:.75rem;">${formatTotals(dayTotals)}</span>`;
+                        : `<span style="color:#444;font-size:.75rem;">${formatTotals(dayTotalsVal)}</span>`;
 
                 cell.innerHTML = `
                     <div>
@@ -338,12 +503,24 @@ const S_SUGAR  = food ? pickAny(["Sugars, total"]) : { value:null, unit:""};
                         <button class="add-btn" style="
                             margin-top:.25rem;padding:.25rem .6rem;font-size:.8rem;
                             border:1px solid #999;border-radius:.4rem;cursor:pointer;
+                            background:#fff;
                         ">Add</button>
                     </div>
                 `;
 
+                // clicking the cell (not on buttons) selects the day for the sidebar
+                cell.addEventListener("click", (ev) => {
+                    const t = ev.target;
+                    if (t && t.nodeType === 1 && t.closest("button")) {
+                        return; // let button handlers handle it
+                    }
+                    selectedDateKey = key;
+                    renderCalendar();
+                });
+
                 // ADD BUTTON logic
-                cell.querySelector(".add-btn").onclick = () => {
+                cell.querySelector(".add-btn").onclick = (ev) => {
+                    ev.stopPropagation();
                     const food = document.getElementById("current-food");
                     if (!food) {
                         alert("Search for a food first!");
@@ -354,7 +531,7 @@ const S_SUGAR  = food ? pickAny(["Sugars, total"]) : { value:null, unit:""};
                     const brand = food.dataset.brand;
                     const id = name + "|" + brand;
 
-                    // Per-serving macros from data attributes (USDA or future sources)
+                    // Per-serving macros from data attributes (USDA or other sources)
                     const macros = {
                         calories: parseFloat(food.dataset.energy || "0") || 0,
                         protein:  parseFloat(food.dataset.protein || "0") || 0,
@@ -371,12 +548,14 @@ const S_SUGAR  = food ? pickAny(["Sugars, total"]) : { value:null, unit:""};
                     }
 
                     savePlan(p);
+                    selectedDateKey = key;
                     renderCalendar();
                 };
 
                 // REMOVE BUTTON logic
                 cell.querySelectorAll("button[data-remove]").forEach(btn => {
-                    btn.onclick = () => {
+                    btn.onclick = (ev) => {
+                        ev.stopPropagation();
                         const id = btn.dataset.remove;
 
                         const p = loadPlan();
@@ -394,52 +573,8 @@ const S_SUGAR  = food ? pickAny(["Sugars, total"]) : { value:null, unit:""};
 
             clearBtn.style.display = anyMeals ? "inline-block" : "none";
 
-            // WEEKLY SUMMARY
-            if (weekSummaryEl) {
-                let html = `<h3 style="margin:0 0 .5rem 0;">Weekly Macro Totals</h3>`;
-                html += `<p style="color:#666;font-size:.8rem;margin:0 0 .5rem 0;">Based on items with tracked macros only.</p>`;
-                html += `<ul style="list-style:none;padding:0;margin:0;">`;
-
-                weekTotals.forEach((wt, idx) => {
-                    if (!wt) return;
-                    const weekLabel = `Week ${idx + 1}`;
-                    html += `
-                        <li style="margin-bottom:.25rem;">
-                            <strong>${weekLabel}:</strong>
-                            <span style="margin-left:.25rem;">${formatTotals(wt)}</span>
-                        </li>
-                    `;
-                });
-
-                html += `</ul>`;
-                weekSummaryEl.innerHTML = html;
-            }
-
-            // MONTHLY SUMMARY
-            if (monthSummaryEl) {
-                const totalDays = days;
-                const avgTotals = {
-                    calories: monthTotals.calories / totalDays,
-                    protein:  monthTotals.protein / totalDays,
-                    fat:      monthTotals.fat / totalDays,
-                    carbs:    monthTotals.carbs / totalDays,
-                    sugars:   monthTotals.sugars / totalDays,
-                };
-
-                monthSummaryEl.innerHTML = `
-                    <h3 style="margin:.75rem 0 .3rem 0;">Monthly Macro Totals</h3>
-                    <p style="color:#666;font-size:.8rem;margin:0 0 .4rem 0;">
-                        Totals and per-day averages for this month (tracked items only).
-                    </p>
-                    <div style="font-size:.9rem;">
-                        <div><strong>Total:</strong> ${formatTotals(monthTotals)}</div>
-                        <div style="margin-top:.15rem;">
-                            <strong>Per-day avg:</strong>
-                            ${formatTotals(avgTotals)}
-                        </div>
-                    </div>
-                `;
-            }
+            // Update the sidebar with latest aggregates
+            updateSidebar(selectedDateKey, dayTotalsMap, weekTotals, monthTotals, days, firstDow);
         }
 
         document.getElementById("prev-month").onclick = () => {
