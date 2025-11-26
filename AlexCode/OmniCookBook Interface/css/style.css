@@ -4,6 +4,7 @@ body {
     margin: 80px;
     padding-top: 120px;
     overflow: hidden;
+    overflow-y: auto;
 }
 
 
@@ -205,6 +206,96 @@ body {
     position: relative;
     top: -130px;
 }
+
+
+
+
+/* share recipe */
+
+.share-desc-container{
+    width: 70%;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.share-description{
+    text-align: left;
+    font-size: 30px;
+    position: relative;
+    top: -130px;
+}
+
+.share-box{
+    position: relative;
+    top: -70px;
+}
+
+.share-steps{
+    margin: 10px;
+    font-size: 20px;
+}
+
+.sharetext{
+    resize: none;
+    font-size: 16px;
+    padding: 6px;
+    border-radius: 10px;
+}
+
+.sub-share-button:hover,
+.sharetext:focus{
+    outline: none;
+    box-shadow: 0px 0px 10px 2px rgba(0,123,255,0.25);
+}
+
+
+.sharetext.title-textbox{
+    width: 500px;
+}
+
+.sharetext.ing-textbox{
+    width: 500px;
+    height: 80px;
+}
+
+.sharetext.ins-textbox{
+    width: 500px;
+    height: 160px;
+}
+
+.sharetext.serv-textbox,
+.sharetext.time-textbox{
+    width: 250px;
+    height: 30px;
+}
+
+
+.sharetext.share-email-textbox{
+    width: 500px;
+    height: 30px;
+}
+
+
+
+.sub-share-button{
+    display: block;
+    margin-top: 20px;
+    margin-left: 175px;
+    width: 150px;
+    height: 31px;
+    padding: 0 12px;
+    font-size: 18px;
+
+    border: none;
+    background: #e67e22;
+    color: white;
+    border-radius: 4px;
+    cursor: pointer;
+
+}
+
+
+/* end share recipe */
 
 
 

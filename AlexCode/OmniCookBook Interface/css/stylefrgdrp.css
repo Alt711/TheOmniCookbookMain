@@ -3,6 +3,7 @@ body {
     background: transparent;
     overflow: hidden;
     /* background: rgb(243, 193, 146); */
+    overflow-y: auto;
 
 }
 
@@ -244,29 +245,6 @@ body {
     word-break: break-word;
     max-width: 100%;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
