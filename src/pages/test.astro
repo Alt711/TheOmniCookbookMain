@@ -4,7 +4,7 @@ export const prerender = false;
 import Layout from '../layouts/Layout.astro'
 import '../styles/style.css'
 
-/* ---------- helpers ---------- */
+// ---------- helpers ----------
 function fmtErr(prefix: string, e: unknown) {
     const b = e as any;
     return [
@@ -29,6 +29,7 @@ const query = (Astro.url.searchParams.get("q") || "").trim() || "";
 let food: Food | null = null;
 let error: { message: string } | null = null;
 
+//try and get data
 if (query) {
     try {
         const sUrl = new URL("https://api.nal.usda.gov/fdc/v1/foods/search");
@@ -57,6 +58,7 @@ if (query) {
     }
 }
 
+//data formating
 function buildMap(fd: any) {
     const map = new Map<string, Nutr>();
 

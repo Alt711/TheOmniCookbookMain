@@ -2,6 +2,7 @@
 
 const resultsEl = document.getElementById('results')!
 
+//script to load recipes from supabase 
 async function loadRecipes() {
   resultsEl.innerHTML = `<p style="opacity:.7">Loading recipes…</p>`
 

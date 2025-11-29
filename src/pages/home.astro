@@ -1,9 +1,7 @@
 ﻿---
 import Layout from '../layouts/Layout.astro'
 
-/** ========== config you can tweak ========== */
 const QUERY = 'chocolate bar'   // search phrase
-/** ========================================= */
 
 function fmtErr(prefix: string, e: unknown) {
 	const base = e as any
@@ -25,7 +23,7 @@ let food: any = null
 let error: { message: string } | null = null
 
 try {
-	// 1) search
+	//search
 	const sUrl = new URL('https://api.nal.usda.gov/fdc/v1/foods/search')
 	sUrl.searchParams.set('api_key', FDC_KEY)
 	sUrl.searchParams.set('query', QUERY)
@@ -39,7 +37,7 @@ try {
 	const top = sJson?.foods?.[0]
 	if (!top?.fdcId) throw new Error(`No results for "${QUERY}"`)
 
-	// 2) details
+	//details
 	const dUrl = new URL(`https://api.nal.usda.gov/fdc/v1/food/${top.fdcId}`)
 	dUrl.searchParams.set('api_key', FDC_KEY)
 	const dRes = await fetch(dUrl.toString())
@@ -51,11 +49,11 @@ try {
 	error = { message: fmtErr('Caught', e) }
 }
 
-/** Build a normalized nutrient map from both shapes */
+//Build a normalized nutrient map from both shapes 
 function buildMap(fd: any) {
 	const map = new Map<string, { value: number; unit: string }>()
 
-	// A) full list (amount + nutrient.name / unit)
+	//full list (amount + nutrient.name / unit)
 	for (const n of (fd?.foodNutrients ?? [])) {
 		const name = n.nutrientName ?? n.nutrient?.name
 		const unit = n.unitName ?? n.nutrient?.unitName ?? ''
@@ -65,7 +63,7 @@ function buildMap(fd: any) {
 		}
 	}
 
-	// B) labelNutrients (per serving)
+	//labelNutrients (per serving)
 	const ln = fd?.labelNutrients || {}
 	const addLN = (key: string, pretty: string, unit: string) => {
 		if (ln[key]?.value != null) map.set(pretty.toLowerCase(), { value: Number(ln[key].value), unit })
@@ -102,7 +100,7 @@ const S_FAT    = pickAny(['Total lipid (fat)', 'Total Fat'])
 const S_CARB   = pickAny(['Carbohydrate, by difference', 'Total Carbohydrate'])
 const S_SUGAR  = pickAny(['Sugars, total including NLEA', 'Sugars, total'])
 
-// Optional per-100g conversion if serving size is in grams
+//optional per-100g conversion if serving size is in grams
 let H_ENERGY: string | null = null
 let H_PRO:    string | null = null
 let H_FAT:    string | null = null

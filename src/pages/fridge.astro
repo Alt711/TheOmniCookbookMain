@@ -4,7 +4,7 @@ export const prerender = false;
 import Layout from '../layouts/Layout.astro';
 import '../styles/style.css';
 
-/** ---------- helpers ---------- */
+// ---------- helpers ---------- 
 function fmtErr(prefix: string, e: unknown) {
     const base = e as any;
     return [
@@ -21,7 +21,7 @@ function fmtErr(prefix: string, e: unknown) {
 type FoodDetails = any;
 type NutrEntry = { value: number; unit: string };
 
-// Which tab are we on?
+// Which tab we are on
 const mode = Astro.url.searchParams.get('mode') === 'recipes' ? 'recipes' : 'ingredients';
 
 // Shared search query
@@ -43,7 +43,7 @@ const SPOON_KEY = import.meta.env.SPOONACULAR || '';
 let recipes: any[] = [];
 let recipeError: { message: string } | null = null;
 
-/** ---------- USDA INGREDIENT LOOKUP ---------- */
+// ---------- USDA INGREDIENT LOOKUP ---------- 
 if (mode === 'ingredients' && query) {
     try {
         const sUrl = new URL('https://api.nal.usda.gov/fdc/v1/foods/search');
@@ -74,7 +74,7 @@ if (mode === 'ingredients' && query) {
     }
 }
 
-/** ---------- SPOONACULAR RECIPE SEARCH ---------- */
+//---------- SPOONACULAR RECIPE SEARCH ---------- 
 if (mode === 'recipes' && query) {
     try {
         if (!SPOON_KEY) {
@@ -85,7 +85,7 @@ if (mode === 'recipes' && query) {
         rUrl.searchParams.set('apiKey', SPOON_KEY);
         rUrl.searchParams.set('query', query);
         rUrl.searchParams.set('addRecipeInformation', 'true');
-        // NEW: ask Spoonacular to include nutrition so we can get macros
+        // Ask Spoonacular to include nutrition so we can get macros
         rUrl.searchParams.set('addRecipeNutrition', 'true');
         rUrl.searchParams.set('number', '8');
 
@@ -101,11 +101,11 @@ if (mode === 'recipes' && query) {
     }
 }
 
-/** normalize nutrients from both shapes */
+// normalize nutrients from both shapes 
 function buildMap(fd: any) {
     const map = new Map<string, NutrEntry>();
 
-    // A) generic list
+    //generic list
     for (const n of (fd?.foodNutrients ?? [])) {
         const name = n.nutrientName ?? n.nutrient?.name;
         const unit = n.unitName ?? n.nutrient?.unitName ?? '';
@@ -115,7 +115,7 @@ function buildMap(fd: any) {
         }
     }
 
-    // B) labelNutrients (per serving)
+    //labelNutrients (per serving)
     const ln = fd?.labelNutrients || {};
     const addLN = (key: string, pretty: string, unit: string) => {
         if (ln[key]?.value != null) map.set(pretty.toLowerCase(), { value: Number(ln[key].value), unit });
@@ -242,13 +242,14 @@ const filteredRecipes =
             )}
 
             {!foodError && food && (
+
+                <!-- NEW: store ingredient macros on the element so JS can save them -->
                 <section
                     id="current-food"
                     style="max-width:800px;margin:1rem auto;"
                     data-name={food.description || query}
                     data-brand={food.brandOwner || ''}
                     data-kind="ingredient"
-                    <!-- NEW: store ingredient macros on the element so JS can save them -->
                     data-calories={S_ENERGY.value ?? ''}
                     data-protein={S_PRO.value ?? ''}
                     data-carbs={S_CARB.value ?? ''}
@@ -365,10 +366,11 @@ const filteredRecipes =
                 </p>
             )}
 
+            {/* Pull nutrition macros off Spoonacular result if present */}
             {!recipeError && filteredRecipes.length > 0 && (
                 <section style="max-width:800px;margin:1.5rem auto 1rem auto;">
                     {filteredRecipes.map((r) => {
-                        // NEW: pull nutrition macros off Spoonacular result if present
+                        
                         const nutrients = (r.nutrition && Array.isArray(r.nutrition.nutrients))
                             ? r.nutrition.nutrients
                             : [];
@@ -512,6 +514,7 @@ const filteredRecipes =
         const STORAGE_KEY = 'omni-fridge-items';
         const MP_KEY = 'omni-mealplan-monthly';
 
+        //get data from local
         function loadFridge() {
             try {
                 const raw = localStorage.getItem(STORAGE_KEY);
@@ -521,10 +524,12 @@ const filteredRecipes =
             }
         }
 
+        //save data to local
         function saveFridge(items) {
             localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
         }
 
+        //display the data
         function renderFridge() {
             const listEl = document.getElementById('fridge-list');
             const clearBtn = document.getElementById('clear-fridge');
@@ -547,7 +552,7 @@ const filteredRecipes =
                 li.style.borderBottom = '1px dashed #ddd';
                 li.style.padding = '.4rem 0';
 
-                // LEFT SIDE: name + optional macros
+                // name + optional macros
                 const left = document.createElement('div');
                 left.style.display = 'flex';
                 left.style.flexDirection = 'column';
@@ -559,7 +564,7 @@ const filteredRecipes =
                 title.textContent = tag + item.name + (item.brand ? ` — ${item.brand}` : '');
                 left.appendChild(title);
 
-                // NEW: show macros under each item if present
+                // show macros under each item if present
                 if (item.macros) {
                     const m = item.macros;
                     const macrosLine = document.createElement('span');
@@ -639,7 +644,7 @@ const filteredRecipes =
                     const kind = currentFood.dataset.kind || 'ingredient';
                     const id = kind + '|' + name + '|' + brand;
 
-                    // NEW: pull macros off data- attributes
+                    // pull macros off data- attributes
                     const macros = {
                         calories: currentFood.dataset.calories ? Number(currentFood.dataset.calories) : null,
                         protein:  currentFood.dataset.protein  ? Number(currentFood.dataset.protein)  : null,
@@ -679,7 +684,7 @@ const filteredRecipes =
                     const kind = card.dataset.kind || 'recipe';
                     const id = 'recipe|' + recipeId;
 
-                    // NEW: macros from Spoonacular card data- attributes
+                    //macros from Spoonacular card data- attributes
                     const macros = {
                         calories: card.dataset.calories ? Number(card.dataset.calories) : null,
                         protein:  card.dataset.protein  ? Number(card.dataset.protein)  : null,
@@ -699,7 +704,7 @@ const filteredRecipes =
                 });
             });
 
-            // add recipes directly to meal planner (monthly)
+            //add recipes directly to meal planner (monthly)
             document.querySelectorAll('.recipe-add-plan').forEach((btn) => {
                 btn.addEventListener('click', () => {
                     const recipeId = btn.dataset.recipeId;
@@ -724,7 +729,7 @@ const filteredRecipes =
 
                     const id = 'recipe|' + recipeId;
 
-                    // NEW: macros carried into meal planner entry
+                    //macros carried into meal planner entry
                     const macros = {
                         calories: card.dataset.calories ? Number(card.dataset.calories) : null,
                         protein:  card.dataset.protein  ? Number(card.dataset.protein)  : null,
@@ -748,7 +753,7 @@ const filteredRecipes =
     <style>
         .fridge-tabs-wrapper {
             max-width: 800px;
-            margin: 2.5rem auto 1.75rem auto; /* nice gap under page <h1> */
+            margin: 2.5rem auto 1.75rem auto; 
         }
         .fridge-tabs-bar {
             display: flex;

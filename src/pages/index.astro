@@ -1,10 +1,10 @@
 ---
-export const prerender = false; // run at request-time on serverless (Netlify/Vercel)
+export const prerender = false; 
 
 import Layout from '../layouts/Layout.astro'
-import '../styles/style.css' // optional if you have it
+import '../styles/style.css' 
 
-/** ---------- helpers ---------- */
+//---------- helpers ---------- 
 function fmtErr(prefix: string, e: unknown) {
     const base = e as any
     return [
@@ -24,14 +24,14 @@ type NutrEntry = { value: number; unit: string };
 const FDC_KEY = import.meta.env.FDC_API_KEY;
 if (!FDC_KEY) throw new Error('Missing FDC_API_KEY (set in env)');
 
-// read query from URL (?q=...)
+// read query from URL 
 const query = (Astro.url.searchParams.get('q') || '').trim() || 'chocolate bar';
 
 let food: FoodDetails | null = null;
 let error: { message: string } | null = null;
 
 try {
-    // 1) search
+    //search
     const sUrl = new URL('https://api.nal.usda.gov/fdc/v1/foods/search');
     sUrl.searchParams.set('api_key', FDC_KEY);
     sUrl.searchParams.set('query', query);
@@ -45,7 +45,7 @@ try {
     const top = sJson?.foods?.[0];
     if (!top?.fdcId) throw new Error(`No results for "${query}"`);
 
-    // 2) details
+    //details
     const dUrl = new URL(`https://api.nal.usda.gov/fdc/v1/food/${top.fdcId}`);
     dUrl.searchParams.set('api_key', FDC_KEY);
     const dRes = await fetch(dUrl.toString());
@@ -57,11 +57,11 @@ try {
     error = { message: fmtErr('Caught', e) };
 }
 
-/** normalize nutrients from both shapes */
+// normalize nutrients from both shapes 
 function buildMap(fd: any) {
     const map = new Map<string, NutrEntry>();
 
-    // A) generic list
+    //generic list
     for (const n of (fd?.foodNutrients ?? [])) {
         const name = n.nutrientName ?? n.nutrient?.name;
         const unit = n.unitName ?? n.nutrient?.unitName ?? '';
@@ -71,7 +71,7 @@ function buildMap(fd: any) {
         }
     }
 
-    // B) labelNutrients (per serving)
+    //labelNutrients (per serving)
     const ln = fd?.labelNutrients || {};
     const addLN = (key: string, pretty: string, unit: string) => {
         if (ln[key]?.value != null) map.set(pretty.toLowerCase(), { value: Number(ln[key].value), unit })
