@@ -85,7 +85,7 @@ if (mode === 'recipes' && query) {
         rUrl.searchParams.set('apiKey', SPOON_KEY);
         rUrl.searchParams.set('query', query);
         rUrl.searchParams.set('addRecipeInformation', 'true');
-        // NEW: ask Spoonacular to include nutrition so we can get macros
+        // include nutrition for macro tracking
         rUrl.searchParams.set('addRecipeNutrition', 'true');
         rUrl.searchParams.set('number', '8');
 
@@ -159,6 +159,25 @@ const filteredRecipes =
             r.pricePerServing / 100 <= budget
         )
         : recipes;
+
+/** ---------- helper to turn ingredient list into <li> HTML ---------- */
+function toHTMLList(list: any[] | undefined) {
+    if (!list || !list.length) {
+        return `<li style="color:#777;">No ingredient list available.</li>`;
+    }
+    return list.map((ing) => `<li>${ing.original}</li>`).join('');
+}
+
+/** ---------- helper to turn instruction steps/summary into <li>/p HTML ---------- */
+function toHTMLStepsFromSummary(summaryHtml: string | undefined) {
+    const raw = (summaryHtml || '').replace(/<\/?a[^>]*>/g, '');
+    if (!raw.trim()) {
+        return `<p style="color:#777;font-size:.9rem;margin:0;">No detailed instructions available.</p>`;
+    }
+    const maxLen = 420;
+    const trimmed = raw.length > maxLen ? raw.slice(0, maxLen) + '…' : raw;
+    return `<p style="margin:0;font-size:.9rem;color:#444;">${trimmed}</p>`;
+}
 ---
 
 <Layout title="Add ingredients to your fridge • OmniCookBook">
@@ -248,7 +267,6 @@ const filteredRecipes =
                     data-name={food.description || query}
                     data-brand={food.brandOwner || ''}
                     data-kind="ingredient"
-                    <!-- NEW: store ingredient macros on the element so JS can save them -->
                     data-calories={S_ENERGY.value ?? ''}
                     data-protein={S_PRO.value ?? ''}
                     data-carbs={S_CARB.value ?? ''}
@@ -368,7 +386,7 @@ const filteredRecipes =
             {!recipeError && filteredRecipes.length > 0 && (
                 <section style="max-width:800px;margin:1.5rem auto 1rem auto;">
                     {filteredRecipes.map((r) => {
-                        // NEW: pull nutrition macros off Spoonacular result if present
+                        // pull nutrition macros off Spoonacular result if present
                         const nutrients = (r.nutrition && Array.isArray(r.nutrition.nutrients))
                             ? r.nutrition.nutrients
                             : [];
@@ -383,6 +401,12 @@ const filteredRecipes =
                         const fat  = getAmount('Fat');
                         const carb = getAmount('Carbohydrates');
                         const sug  = getAmount('Sugar');
+
+                        const summaryHtml = r.summary || '';
+                        const shortSummaryHtml = toHTMLStepsFromSummary(summaryHtml);
+
+                        const recipeUrl = r.sourceUrl
+                            || `https://spoonacular.com/recipes/${encodeURIComponent(r.title || 'recipe')}-${r.id}`;
 
                         return (
                         <article
@@ -422,36 +446,32 @@ const filteredRecipes =
                                     {/* optional quick macro preview under title if nutrition exists */}
                                     {(cal || pro || carb || fat || sug) && (
                                         <p style="margin:.25rem 0 0 0;color:#444;font-size:.8rem;">
-                                            {cal && <>🔥 {cal.toFixed ? cal.toFixed(0) : cal} kcal&nbsp;&nbsp;</>}
-                                            {pro && <>💪 P {pro.toFixed ? pro.toFixed(1) : pro} g&nbsp;&nbsp;</>}
-                                            {carb && <>🍞 C {carb.toFixed ? carb.toFixed(1) : carb} g&nbsp;&nbsp;</>}
-                                            {fat && <>🧈 F {fat.toFixed ? fat.toFixed(1) : fat} g&nbsp;&nbsp;</>}
-                                            {sug && <>🍬 Sugars {sug.toFixed ? sug.toFixed(1) : sug} g</>}
+                                            {cal && <>🔥 {(typeof cal === 'number' ? cal.toFixed(0) : cal)} kcal&nbsp;&nbsp;</>}
+                                            {pro && <>💪 P {(typeof pro === 'number' ? pro.toFixed(1) : pro)} g&nbsp;&nbsp;</>}
+                                            {carb && <>🍞 C {(typeof carb === 'number' ? carb.toFixed(1) : carb)} g&nbsp;&nbsp;</>}
+                                            {fat && <>🧈 F {(typeof fat === 'number' ? fat.toFixed(1) : fat)} g&nbsp;&nbsp;</>}
+                                            {sug && <>🍬 Sugars {(typeof sug === 'number' ? sug.toFixed(1) : sug)} g</>}
                                         </p>
                                     )}
 
                                     <details style="margin-top:.4rem;">
                                         <summary style="cursor:pointer;font-size:.9rem;">Ingredients</summary>
-                                        <ul style="margin:.3rem 0 0 1rem;font-size:.9rem;">
-                                            {(r.extendedIngredients ?? []).map((ing: any) => (
-                                                <li>{ing.original}</li>
-                                            ))}
-                                            {(!r.extendedIngredients || r.extendedIngredients.length === 0) && (
-                                                <li style="color:#777;">No ingredient list available.</li>
-                                            )}
-                                        </ul>
+                                        <ul
+                                            style="margin:.3rem 0 0 1rem;font-size:.9rem;"
+                                            set:html={toHTMLList(r.extendedIngredients)}
+                                        ></ul>
                                     </details>
 
                                     <details style="margin-top:.4rem;">
                                         <summary style="cursor:pointer;font-size:.9rem;">Instructions</summary>
-                                        <ol style="margin:.3rem 0 0 1.2rem;font-size:.9rem;">
-                                            {(r.analyzedInstructions?.[0]?.steps ?? []).map((st: any) => (
-                                                <li>{st.step}</li>
-                                            ))}
-                                            {(!r.analyzedInstructions || !r.analyzedInstructions[0]?.steps?.length) && (
-                                                <li style="color:#777;">No detailed instructions available.</li>
-                                            )}
-                                        </ol>
+                                        <div style="margin:.3rem 0 0 1.2rem;font-size:.9rem;">
+                                            <div set:html={shortSummaryHtml}></div>
+                                            <p style="margin-top:.4rem;font-size:.85rem;">
+                                                <a href={recipeUrl} target="_blank" rel="noreferrer">
+                                                    View full recipe on Spoonacular ↗
+                                                </a>
+                                            </p>
+                                        </div>
                                     </details>
                                 </div>
                             </div>
@@ -486,7 +506,8 @@ const filteredRecipes =
                                 </div>
                             </div>
                         </article>
-                    )})}
+                        );
+                    })}
                 </section>
             )}
         </>
@@ -547,7 +568,6 @@ const filteredRecipes =
                 li.style.borderBottom = '1px dashed #ddd';
                 li.style.padding = '.4rem 0';
 
-                // LEFT SIDE: name + optional macros
                 const left = document.createElement('div');
                 left.style.display = 'flex';
                 left.style.flexDirection = 'column';
@@ -559,7 +579,7 @@ const filteredRecipes =
                 title.textContent = tag + item.name + (item.brand ? ` — ${item.brand}` : '');
                 left.appendChild(title);
 
-                // NEW: show macros under each item if present
+                // Macros line (if present)
                 if (item.macros) {
                     const m = item.macros;
                     const macrosLine = document.createElement('span');
@@ -639,7 +659,6 @@ const filteredRecipes =
                     const kind = currentFood.dataset.kind || 'ingredient';
                     const id = kind + '|' + name + '|' + brand;
 
-                    // NEW: pull macros off data- attributes
                     const macros = {
                         calories: currentFood.dataset.calories ? Number(currentFood.dataset.calories) : null,
                         protein:  currentFood.dataset.protein  ? Number(currentFood.dataset.protein)  : null,
@@ -679,7 +698,6 @@ const filteredRecipes =
                     const kind = card.dataset.kind || 'recipe';
                     const id = 'recipe|' + recipeId;
 
-                    // NEW: macros from Spoonacular card data- attributes
                     const macros = {
                         calories: card.dataset.calories ? Number(card.dataset.calories) : null,
                         protein:  card.dataset.protein  ? Number(card.dataset.protein)  : null,
@@ -715,7 +733,6 @@ const filteredRecipes =
                         return;
                     }
 
-                    // dateVal is YYYY-MM-DD, convert to key used by monthly planner
                     const [y, m, d] = dateVal.split('-');
                     const key = `${Number(y)}-${Number(m)}-${Number(d)}`;
 
@@ -724,7 +741,6 @@ const filteredRecipes =
 
                     const id = 'recipe|' + recipeId;
 
-                    // NEW: macros carried into meal planner entry
                     const macros = {
                         calories: card.dataset.calories ? Number(card.dataset.calories) : null,
                         protein:  card.dataset.protein  ? Number(card.dataset.protein)  : null,
