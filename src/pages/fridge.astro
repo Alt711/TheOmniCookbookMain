@@ -4,7 +4,7 @@ export const prerender = false;
 import Layout from '../layouts/Layout.astro';
 import '../styles/style.css';
 
-// ---------- helpers ---------- 
+/** ---------- helpers ---------- */
 function fmtErr(prefix: string, e: unknown) {
     const base = e as any;
     return [
@@ -21,7 +21,7 @@ function fmtErr(prefix: string, e: unknown) {
 type FoodDetails = any;
 type NutrEntry = { value: number; unit: string };
 
-// Which tab we are on
+// Which tab are we on?
 const mode = Astro.url.searchParams.get('mode') === 'recipes' ? 'recipes' : 'ingredients';
 
 // Shared search query
@@ -43,7 +43,7 @@ const SPOON_KEY = import.meta.env.SPOONACULAR || '';
 let recipes: any[] = [];
 let recipeError: { message: string } | null = null;
 
-// ---------- USDA INGREDIENT LOOKUP ---------- 
+/** ---------- USDA INGREDIENT LOOKUP ---------- */
 if (mode === 'ingredients' && query) {
     try {
         const sUrl = new URL('https://api.nal.usda.gov/fdc/v1/foods/search');
@@ -74,7 +74,7 @@ if (mode === 'ingredients' && query) {
     }
 }
 
-//---------- SPOONACULAR RECIPE SEARCH ---------- 
+/** ---------- SPOONACULAR RECIPE SEARCH ---------- */
 if (mode === 'recipes' && query) {
     try {
         if (!SPOON_KEY) {
@@ -85,7 +85,7 @@ if (mode === 'recipes' && query) {
         rUrl.searchParams.set('apiKey', SPOON_KEY);
         rUrl.searchParams.set('query', query);
         rUrl.searchParams.set('addRecipeInformation', 'true');
-        // Ask Spoonacular to include nutrition so we can get macros
+        // include nutrition for macro tracking
         rUrl.searchParams.set('addRecipeNutrition', 'true');
         rUrl.searchParams.set('number', '8');
 
@@ -101,11 +101,11 @@ if (mode === 'recipes' && query) {
     }
 }
 
-// normalize nutrients from both shapes 
+/** normalize nutrients from both shapes */
 function buildMap(fd: any) {
     const map = new Map<string, NutrEntry>();
 
-    //generic list
+    // A) generic list
     for (const n of (fd?.foodNutrients ?? [])) {
         const name = n.nutrientName ?? n.nutrient?.name;
         const unit = n.unitName ?? n.nutrient?.unitName ?? '';
@@ -115,7 +115,7 @@ function buildMap(fd: any) {
         }
     }
 
-    //labelNutrients (per serving)
+    // B) labelNutrients (per serving)
     const ln = fd?.labelNutrients || {};
     const addLN = (key: string, pretty: string, unit: string) => {
         if (ln[key]?.value != null) map.set(pretty.toLowerCase(), { value: Number(ln[key].value), unit });
@@ -159,6 +159,25 @@ const filteredRecipes =
             r.pricePerServing / 100 <= budget
         )
         : recipes;
+
+/** ---------- helper to turn ingredient list into <li> HTML ---------- */
+function toHTMLList(list: any[] | undefined) {
+    if (!list || !list.length) {
+        return `<li style="color:#777;">No ingredient list available.</li>`;
+    }
+    return list.map((ing) => `<li>${ing.original}</li>`).join('');
+}
+
+/** ---------- helper to turn instruction steps/summary into <li>/p HTML ---------- */
+function toHTMLStepsFromSummary(summaryHtml: string | undefined) {
+    const raw = (summaryHtml || '').replace(/<\/?a[^>]*>/g, '');
+    if (!raw.trim()) {
+        return `<p style="color:#777;font-size:.9rem;margin:0;">No detailed instructions available.</p>`;
+    }
+    const maxLen = 420;
+    const trimmed = raw.length > maxLen ? raw.slice(0, maxLen) + '…' : raw;
+    return `<p style="margin:0;font-size:.9rem;color:#444;">${trimmed}</p>`;
+}
 ---
 
 <Layout title="Add ingredients to your fridge • OmniCookBook">
@@ -242,8 +261,6 @@ const filteredRecipes =
             )}
 
             {!foodError && food && (
-
-                <!-- NEW: store ingredient macros on the element so JS can save them -->
                 <section
                     id="current-food"
                     style="max-width:800px;margin:1rem auto;"
@@ -366,11 +383,10 @@ const filteredRecipes =
                 </p>
             )}
 
-            {/* Pull nutrition macros off Spoonacular result if present */}
             {!recipeError && filteredRecipes.length > 0 && (
                 <section style="max-width:800px;margin:1.5rem auto 1rem auto;">
                     {filteredRecipes.map((r) => {
-                        
+                        // pull nutrition macros off Spoonacular result if present
                         const nutrients = (r.nutrition && Array.isArray(r.nutrition.nutrients))
                             ? r.nutrition.nutrients
                             : [];
@@ -385,6 +401,12 @@ const filteredRecipes =
                         const fat  = getAmount('Fat');
                         const carb = getAmount('Carbohydrates');
                         const sug  = getAmount('Sugar');
+
+                        const summaryHtml = r.summary || '';
+                        const shortSummaryHtml = toHTMLStepsFromSummary(summaryHtml);
+
+                        const recipeUrl = r.sourceUrl
+                            || `https://spoonacular.com/recipes/${encodeURIComponent(r.title || 'recipe')}-${r.id}`;
 
                         return (
                         <article
@@ -424,36 +446,32 @@ const filteredRecipes =
                                     {/* optional quick macro preview under title if nutrition exists */}
                                     {(cal || pro || carb || fat || sug) && (
                                         <p style="margin:.25rem 0 0 0;color:#444;font-size:.8rem;">
-                                            {cal && <>🔥 {cal.toFixed ? cal.toFixed(0) : cal} kcal&nbsp;&nbsp;</>}
-                                            {pro && <>💪 P {pro.toFixed ? pro.toFixed(1) : pro} g&nbsp;&nbsp;</>}
-                                            {carb && <>🍞 C {carb.toFixed ? carb.toFixed(1) : carb} g&nbsp;&nbsp;</>}
-                                            {fat && <>🧈 F {fat.toFixed ? fat.toFixed(1) : fat} g&nbsp;&nbsp;</>}
-                                            {sug && <>🍬 Sugars {sug.toFixed ? sug.toFixed(1) : sug} g</>}
+                                            {cal && <>🔥 {(typeof cal === 'number' ? cal.toFixed(0) : cal)} kcal&nbsp;&nbsp;</>}
+                                            {pro && <>💪 P {(typeof pro === 'number' ? pro.toFixed(1) : pro)} g&nbsp;&nbsp;</>}
+                                            {carb && <>🍞 C {(typeof carb === 'number' ? carb.toFixed(1) : carb)} g&nbsp;&nbsp;</>}
+                                            {fat && <>🧈 F {(typeof fat === 'number' ? fat.toFixed(1) : fat)} g&nbsp;&nbsp;</>}
+                                            {sug && <>🍬 Sugars {(typeof sug === 'number' ? sug.toFixed(1) : sug)} g</>}
                                         </p>
                                     )}
 
                                     <details style="margin-top:.4rem;">
                                         <summary style="cursor:pointer;font-size:.9rem;">Ingredients</summary>
-                                        <ul style="margin:.3rem 0 0 1rem;font-size:.9rem;">
-                                            {(r.extendedIngredients ?? []).map((ing: any) => (
-                                                <li>{ing.original}</li>
-                                            ))}
-                                            {(!r.extendedIngredients || r.extendedIngredients.length === 0) && (
-                                                <li style="color:#777;">No ingredient list available.</li>
-                                            )}
-                                        </ul>
+                                        <ul
+                                            style="margin:.3rem 0 0 1rem;font-size:.9rem;"
+                                            set:html={toHTMLList(r.extendedIngredients)}
+                                        ></ul>
                                     </details>
 
                                     <details style="margin-top:.4rem;">
                                         <summary style="cursor:pointer;font-size:.9rem;">Instructions</summary>
-                                        <ol style="margin:.3rem 0 0 1.2rem;font-size:.9rem;">
-                                            {(r.analyzedInstructions?.[0]?.steps ?? []).map((st: any) => (
-                                                <li>{st.step}</li>
-                                            ))}
-                                            {(!r.analyzedInstructions || !r.analyzedInstructions[0]?.steps?.length) && (
-                                                <li style="color:#777;">No detailed instructions available.</li>
-                                            )}
-                                        </ol>
+                                        <div style="margin:.3rem 0 0 1.2rem;font-size:.9rem;">
+                                            <div set:html={shortSummaryHtml}></div>
+                                            <p style="margin-top:.4rem;font-size:.85rem;">
+                                                <a href={recipeUrl} target="_blank" rel="noreferrer">
+                                                    View full recipe on Spoonacular ↗
+                                                </a>
+                                            </p>
+                                        </div>
                                     </details>
                                 </div>
                             </div>
@@ -488,7 +506,8 @@ const filteredRecipes =
                                 </div>
                             </div>
                         </article>
-                    )})}
+                        );
+                    })}
                 </section>
             )}
         </>
@@ -514,7 +533,6 @@ const filteredRecipes =
         const STORAGE_KEY = 'omni-fridge-items';
         const MP_KEY = 'omni-mealplan-monthly';
 
-        //get data from local
         function loadFridge() {
             try {
                 const raw = localStorage.getItem(STORAGE_KEY);
@@ -524,12 +542,10 @@ const filteredRecipes =
             }
         }
 
-        //save data to local
         function saveFridge(items) {
             localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
         }
 
-        //display the data
         function renderFridge() {
             const listEl = document.getElementById('fridge-list');
             const clearBtn = document.getElementById('clear-fridge');
@@ -552,7 +568,6 @@ const filteredRecipes =
                 li.style.borderBottom = '1px dashed #ddd';
                 li.style.padding = '.4rem 0';
 
-                // name + optional macros
                 const left = document.createElement('div');
                 left.style.display = 'flex';
                 left.style.flexDirection = 'column';
@@ -564,7 +579,7 @@ const filteredRecipes =
                 title.textContent = tag + item.name + (item.brand ? ` — ${item.brand}` : '');
                 left.appendChild(title);
 
-                // show macros under each item if present
+                // Macros line (if present)
                 if (item.macros) {
                     const m = item.macros;
                     const macrosLine = document.createElement('span');
@@ -644,7 +659,6 @@ const filteredRecipes =
                     const kind = currentFood.dataset.kind || 'ingredient';
                     const id = kind + '|' + name + '|' + brand;
 
-                    // pull macros off data- attributes
                     const macros = {
                         calories: currentFood.dataset.calories ? Number(currentFood.dataset.calories) : null,
                         protein:  currentFood.dataset.protein  ? Number(currentFood.dataset.protein)  : null,
@@ -684,7 +698,6 @@ const filteredRecipes =
                     const kind = card.dataset.kind || 'recipe';
                     const id = 'recipe|' + recipeId;
 
-                    //macros from Spoonacular card data- attributes
                     const macros = {
                         calories: card.dataset.calories ? Number(card.dataset.calories) : null,
                         protein:  card.dataset.protein  ? Number(card.dataset.protein)  : null,
@@ -704,7 +717,7 @@ const filteredRecipes =
                 });
             });
 
-            //add recipes directly to meal planner (monthly)
+            // add recipes directly to meal planner (monthly)
             document.querySelectorAll('.recipe-add-plan').forEach((btn) => {
                 btn.addEventListener('click', () => {
                     const recipeId = btn.dataset.recipeId;
@@ -720,7 +733,6 @@ const filteredRecipes =
                         return;
                     }
 
-                    // dateVal is YYYY-MM-DD, convert to key used by monthly planner
                     const [y, m, d] = dateVal.split('-');
                     const key = `${Number(y)}-${Number(m)}-${Number(d)}`;
 
@@ -729,7 +741,6 @@ const filteredRecipes =
 
                     const id = 'recipe|' + recipeId;
 
-                    //macros carried into meal planner entry
                     const macros = {
                         calories: card.dataset.calories ? Number(card.dataset.calories) : null,
                         protein:  card.dataset.protein  ? Number(card.dataset.protein)  : null,
@@ -753,7 +764,7 @@ const filteredRecipes =
     <style>
         .fridge-tabs-wrapper {
             max-width: 800px;
-            margin: 2.5rem auto 1.75rem auto; 
+            margin: 2.5rem auto 1.75rem auto; /* nice gap under page <h1> */
         }
         .fridge-tabs-bar {
             display: flex;
