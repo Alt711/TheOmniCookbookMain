@@ -181,19 +181,27 @@ function toHTMLStepsFromSummary(summaryHtml: string | undefined) {
 ---
 
 <Layout title="Add ingredients to your fridge • OmniCookBook">
-    <!-- top bar -->
-    <nav class="top-bar">
-        <a href="/" class="page-title">
-            <img src="/img/omnilogo.png" alt="logo" height="32" width="32" />
-            OmniCookBook
-            <img src="/img/omnilogo.png" alt="logo" height="32" width="32" style="transform: scaleX(-1);" />
-        </a>
 
-        <div class="right-side-lks">
-            <a href="/" class="home">Home</a>
-            <a href="/about" class="about">About</a>
-            <a href="/contact-us" class="contact-us">Contact us</a>
-        </div>
+    <!-- ANIMATED BANNER -->
+    <div id="omni-banner" class="omni-banner-fullscreen">
+        <img src="/img/omnilogo.png" alt="OmniCookBook Logo" class="banner-logo" />
+        <h1 class="banner-title">OmniCookBook</h1>
+        <p class="banner-tagline">Your Ultimate Recipe & Nutrition Companion</p>
+    </div>
+
+    <!-- top bar -->
+    <nav class="top-bar" id="top-nav">
+    <a href="/" class="page-title">
+        <img src="/img/omnilogo.png" alt="logo" class="nav-logo" />
+        <span class="nav-title-text">OmniCookBook</span>
+        <img src="/img/omnilogo.png" alt="logo" class="nav-logo nav-logo-flip" />
+    </a>
+
+    <div class="right-side-lks">
+        <a href="/" class="nav-link">Home</a>
+        <a href="/about" class="nav-link">About</a>
+        <a href="/contact-us" class="nav-link">Contact us</a>
+    </div>
     </nav>
 
     <!-- left/right buttons -->
@@ -210,21 +218,21 @@ function toHTMLStepsFromSummary(summaryHtml: string | undefined) {
 
     <!-- TABS -->
     <section class="fridge-tabs-wrapper">
-        <div class="fridge-tabs-bar">
-            <a
-                href="/fridge?mode=ingredients"
-                class={`fridge-tab ${mode === 'ingredients' ? 'active' : ''}`}
-            >
-                Ingredients (USDA)
-            </a>
-            <a
-                href="/fridge?mode=recipes"
-                class={`fridge-tab ${mode === 'recipes' ? 'active' : ''}`}
-            >
-                Recipes (Spoonacular)
-            </a>
-        </div>
-    </section>
+    <div class="fridge-tabs-bar">
+        
+            <a href="/fridge?mode=ingredients"
+            class={`fridge-tab ${mode === 'ingredients' ? 'active' : ''}`}
+        >
+             Ingredients (USDA)
+        </a>
+        
+            <a href="/fridge?mode=recipes"
+            class={`fridge-tab ${mode === 'recipes' ? 'active' : ''}`}
+        >
+             Recipes (Spoonacular)
+        </a>
+    </div>
+</section>
 
     <!-- INGREDIENT MODE -->
     {mode === 'ingredients' && (
@@ -238,7 +246,7 @@ function toHTMLStepsFromSummary(summaryHtml: string | undefined) {
                     value={query}
                     placeholder="Search for an ingredient (e.g. milk, chicken breast)"
                 />
-                <button class="omnisearchbutton" aria-label="Search">🔍</button>
+                <button class="omnisearchbutton" type="submit" aria-label="Search">🔍</button>
             </form>
 
             {foodError && (
@@ -303,7 +311,7 @@ function toHTMLStepsFromSummary(summaryHtml: string | undefined) {
                     <button
                         id="add-to-fridge"
                         type="button"
-                        style="margin-top:.5rem;padding:.5rem 1rem;border-radius:.5rem;border:1px solid #4caf50;background:#4caf50;color:white;cursor:pointer;"
+                        class="btn-primary"
                     >
                         ➕ Add Ingredient to My Fridge
                     </button>
@@ -643,6 +651,29 @@ function toHTMLStepsFromSummary(summaryHtml: string | undefined) {
             localStorage.setItem(MP_KEY, JSON.stringify(p));
         }
 
+    // Banner animation on scroll
+    let hasScrolled = false;
+    window.addEventListener('scroll', () => {
+        const banner = document.getElementById('omni-banner');
+        if (!banner || hasScrolled) return;
+
+        if (window.scrollY > 50) {
+            hasScrolled = true;
+            banner.classList.remove('omni-banner-fullscreen');
+            banner.classList.add('omni-banner-corner');
+        }
+    });
+
+    // Also trigger on interaction after 3 seconds
+    setTimeout(() => {
+        const banner = document.getElementById('omni-banner');
+        if (banner && !hasScrolled) {
+            hasScrolled = true;
+            banner.classList.remove('omni-banner-fullscreen');
+            banner.classList.add('omni-banner-corner');
+        }
+    }, 3000);
+
         document.addEventListener('DOMContentLoaded', () => {
             // initial fridge render
             renderFridge();
@@ -762,32 +793,689 @@ function toHTMLStepsFromSummary(summaryHtml: string | undefined) {
     </script>
 
     <style>
-        .fridge-tabs-wrapper {
-            max-width: 800px;
-            margin: 2.5rem auto 1.75rem auto; /* nice gap under page <h1> */
-        }
-        .fridge-tabs-bar {
-            display: flex;
-            gap: 1rem;
-            background: #ffffff;
-            padding: 1rem 1.2rem;
-            border-radius: 0.75rem;
-            border: 1px solid #ccc;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.10);
-        }
-        .fridge-tab {
-            padding: 0.6rem 1.1rem;
-            border-radius: 0.5rem;
-            background: #ededed;
-            color: #333;
-            font-weight: 500;
-            text-decoration: none;
-            font-size: 0.95rem;
-        }
-        .fridge-tab.active {
-            background: #4caf50;
-            color: #ffffff;
-            font-weight: 700;
-        }
+ /* ============================================
+   OMNICOOKBOOK UI IMPROVEMENTS
+   Add this to your existing style.css or create a new file
+   ============================================ */
+
+/* CSS Variables for consistent theming */
+:root {
+    --primary: #2c7a4f;
+    --primary-light: #40a86f;
+    --primary-dark: #1e5438;
+    --accent: #ff6b35;
+    --background: #fafbfc;
+    --card-bg: #ffffff;
+    --border: #e1e8ed;
+    --text-primary: #2d3748;
+    --text-secondary: #718096;
+    --success: #38a169;
+    --error: #e53e3e;
+}
+
+/* ============================================
+   ANIMATED BANNER
+   ============================================ */
+
+.omni-banner-fullscreen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary) 100%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.omni-banner-corner {
+    position: fixed;
+    top: 1rem;
+    left: 1rem;
+    width: 200px;
+    height: 80px;
+    background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary) 100%);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Banner in fullscreen mode */
+.omni-banner-fullscreen .banner-logo {
+    width: 120px;
+    height: 120px;
+    margin-bottom: 1.5rem;
+    animation: float 3s ease-in-out infinite;
+}
+
+.omni-banner-fullscreen .banner-title {
+    color: white;
+    font-size: 3.5rem;
+    font-weight: 800;
+    margin: 0;
+    letter-spacing: -0.02em;
+}
+
+.omni-banner-fullscreen .banner-tagline {
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 1.25rem;
+    margin: 0.5rem 0 0 0;
+    font-weight: 300;
+}
+
+/* Banner in corner mode */
+.omni-banner-corner .banner-logo {
+    width: 40px;
+    height: 40px;
+    margin: 0;
+}
+
+.omni-banner-corner .banner-title {
+    display: none;
+}
+
+.omni-banner-corner .banner-tagline {
+    display: none;
+}
+
+@keyframes float {
+    0%, 100% {
+        transform: translateY(0px);
+    }
+    50% {
+        transform: translateY(-20px);
+    }
+}
+
+/* ============================================
+   NAVIGATION BAR
+   ============================================ */
+
+.top-bar {
+    background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary) 100%);
+    padding: 1rem 2rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    position: sticky;
+    top: 0;
+    z-index: 999;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.page-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: white;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    transition: transform 0.2s ease;
+}
+
+.page-title:hover {
+    transform: translateY(-2px);
+}
+
+.nav-logo {
+    width: 32px;
+    height: 32px;
+}
+
+.nav-logo-flip {
+    transform: scaleX(-1);
+}
+
+.nav-title-text {
+    font-size: 1.5rem;
+}
+
+.right-side-lks {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.nav-link {
+    color: rgba(255, 255, 255, 0.9);
+    font-weight: 500;
+    font-size: 0.95rem;
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    text-decoration: none;
+    transition: all 0.2s ease;
+}
+
+.nav-link:hover {
+    background: rgba(255, 255, 255, 0.15);
+    color: white;
+}
+
+/* ============================================
+   SEARCH BOX
+   ============================================ */
+
+.omnisearchbox {
+    max-width: 600px;
+    margin: 1.5rem auto;
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.omnisearchinput {
+    width: 100%;
+    padding: 1rem 4rem 1rem 1.5rem;
+    font-size: 1rem;
+    border: 2px solid var(--border);
+    border-radius: 12px;
+    transition: all 0.3s ease;
+    background: white;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+}
+
+.omnisearchinput:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(44, 122, 79, 0.1), 0 4px 20px rgba(0, 0, 0, 0.08);
+}
+
+.omnisearchinput::placeholder {
+    color: var(--text-secondary);
+}
+
+.omnisearchbutton {
+    position: absolute;
+    right: 0.5rem;
+    background: var(--primary);
+    border: none;
+    padding: 0.75rem 1.25rem;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 1.25rem;
+}
+
+.omnisearchbutton:hover {
+    background: var(--primary-dark);
+    transform: scale(1.05);
+}
+
+.omnisearchbutton:active {
+    transform: scale(0.98);
+}
+
+/* ============================================
+   TABS
+   ============================================ */
+
+.fridge-tabs-wrapper {
+    max-width: 800px;
+    margin: 2rem auto;
+}
+
+.fridge-tabs-bar {
+    display: flex;
+    gap: 0.5rem;
+    background: white;
+    padding: 0.5rem;
+    border-radius: 12px;
+    border: 2px solid var(--border);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.fridge-tab {
+    flex: 1;
+    padding: 0.875rem 1.5rem;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--text-secondary);
+    font-weight: 600;
+    text-decoration: none;
+    text-align: center;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+}
+
+.fridge-tab:hover {
+    background: rgba(44, 122, 79, 0.08);
+    color: var(--primary);
+}
+
+.fridge-tab.active {
+    background: var(--primary);
+    color: white;
+    box-shadow: 0 4px 12px rgba(44, 122, 79, 0.3);
+}
+
+/* ============================================
+   BUTTONS
+   ============================================ */
+
+.btn-primary {
+    padding: 0.75rem 1.5rem;
+    border-radius: 8px;
+    border: none;
+    background: var(--primary);
+    color: white;
+    font-weight: 600;
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 8px rgba(44, 122, 79, 0.2);
+}
+
+.btn-primary:hover {
+    background: var(--primary-dark);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(44, 122, 79, 0.3);
+}
+
+.btn-primary:active {
+    transform: translateY(0);
+}
+
+.btn-secondary {
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    background: white;
+    color: var(--primary);
+    border: 2px solid var(--primary);
+    font-weight: 600;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-secondary:hover {
+    background: var(--primary);
+    color: white;
+}
+
+.btn-danger {
+    padding: 0.75rem 1.5rem;
+    border-radius: 8px;
+    border: none;
+    background: var(--error);
+    color: white;
+    font-weight: 600;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 8px rgba(229, 62, 62, 0.2);
+}
+
+.btn-danger:hover {
+    background: #c53030;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(229, 62, 62, 0.3);
+}
+
+.btn-remove {
+    padding: 0.4rem 0.9rem;
+    font-size: 0.8rem;
+    border-radius: 6px;
+    border: 1px solid #999;
+    background: #f5f5f5;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-remove:hover {
+    background: #e0e0e0;
+    border-color: #666;
+}
+
+/* ============================================
+   RECIPE CARDS
+   ============================================ */
+
+.recipes-container {
+    max-width: 800px;
+    margin: 1.5rem auto 1rem auto;
+}
+
+.recipe-card {
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    background: white;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.recipe-card:hover {
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+    transform: translateY(-2px);
+    border-color: var(--primary-light);
+}
+
+.recipe-content {
+    display: flex;
+    gap: 1rem;
+}
+
+.recipe-image {
+    width: 120px;
+    height: 120px;
+    object-fit: cover;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.recipe-info {
+    flex: 1;
+}
+
+.recipe-title {
+    margin: 0.1rem 0 0.3rem 0;
+    color: var(--text-primary);
+}
+
+.recipe-meta {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.recipe-macros {
+    margin: 0.25rem 0 0 0;
+    color: var(--text-primary);
+    font-size: 0.8rem;
+}
+
+.recipe-actions {
+    margin-top: 1rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    align-items: center;
+}
+
+.recipe-planner {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.85rem;
+}
+
+.planner-label {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    color: var(--text-secondary);
+}
+
+.recipe-plan-date {
+    margin-left: 0.25rem;
+    padding: 0.4rem 0.6rem;
+    font-size: 0.85rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+}
+
+/* ============================================
+   DETAILS / DROPDOWNS
+   ============================================ */
+
+.recipe-details {
+    margin-top: 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.75rem;
+    background: #f9fafb;
+    transition: all 0.2s ease;
+}
+
+.recipe-details[open] {
+    background: white;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.recipe-details summary {
+    cursor: pointer;
+    font-weight: 600;
+    color: var(--primary);
+    list-style: none;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.9rem;
+}
+
+.recipe-details summary::-webkit-details-marker {
+    display: none;
+}
+
+.recipe-details summary::before {
+    content: '▶';
+    font-size: 0.7rem;
+    transition: transform 0.2s ease;
+}
+
+.recipe-details[open] summary::before {
+    transform: rotate(90deg);
+}
+
+.recipe-details summary:hover {
+    color: var(--primary-dark);
+}
+
+.ingredients-list {
+    margin: 0.5rem 0 0 1rem;
+    font-size: 0.9rem;
+}
+
+.instructions-content {
+    margin: 0.5rem 0 0 0.5rem;
+    font-size: 0.9rem;
+}
+
+.recipe-link {
+    margin-top: 0.4rem;
+    font-size: 0.85rem;
+}
+
+.recipe-link a {
+    color: var(--primary);
+    text-decoration: none;
+}
+
+.recipe-link a:hover {
+    text-decoration: underline;
+}
+
+/* ============================================
+   FOOD DETAIL CARD (Ingredients)
+   ============================================ */
+
+.food-detail-card {
+    max-width: 800px;
+    margin: 1rem auto;
+}
+
+.food-header {
+    background: #f7fbff;
+    border: 1px solid #dde8f6;
+    border-radius: 8px;
+    padding: 1rem;
+}
+
+.serving-info {
+    color: var(--text-secondary);
+    margin-top: 0.25rem;
+    font-size: 0.9rem;
+}
+
+.nutrients-heading {
+    margin-top: 1rem;
+    color: var(--text-primary);
+}
+
+.nutrients-list {
+    list-style: none;
+    padding: 0;
+    margin: 0.5rem 0 1rem 0;
+}
+
+.nutrient-row {
+    display: flex;
+    justify-content: space-between;
+    border-bottom: 1px dashed #ddd;
+    padding: 0.5rem 0;
+}
+
+/* ============================================
+   FRIDGE INVENTORY
+   ============================================ */
+
+.fridge-inventory {
+    max-width: 800px;
+    margin: 2rem auto 3rem auto;
+}
+
+.fridge-description {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    margin-top: 0.25rem;
+}
+
+.fridge-list {
+    list-style: none;
+    padding: 0;
+    margin: 1rem 0;
+}
+
+.fridge-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px dashed #ddd;
+    padding: 0.6rem 0;
+}
+
+.fridge-item-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.fridge-item-title {
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+.fridge-item-macros {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    margin-top: 0.25rem;
+}
+
+.fridge-empty {
+    color: #777;
+}
+
+/* ============================================
+   UTILITY CLASSES
+   ============================================ */
+
+.info-text {
+    max-width: 800px;
+    margin: 1rem auto;
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+}
+
+.error-box {
+    white-space: pre-wrap;
+    background: #fff3f3;
+    border: 1px solid #f3b5b5;
+    padding: 0.75rem;
+    border-radius: 8px;
+    max-width: 800px;
+    margin: 1rem auto;
+}
+
+.prompt-index {
+    text-align: center;
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 1.5rem 0 1rem 0;
+}
+
+.budget-filter-wrapper {
+    max-width: 800px;
+    margin: 0.5rem auto 0 auto;
+}
+
+.budget-filter {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.9rem;
+}
+
+.budget-label {
+    color: var(--text-primary);
+}
+
+.budget-select {
+    padding: 0.4rem 0.7rem;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    font-size: 0.9rem;
+    background: white;
+}
+
+/* ============================================
+   RESPONSIVE DESIGN
+   ============================================ */
+
+@media (max-width: 768px) {
+    .top-bar {
+        flex-direction: column;
+        gap: 1rem;
+        padding: 1rem;
+    }
+    
+    .right-side-lks {
+        display: flex;
+        justify-content: center;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+    
+    .recipe-content {
+        flex-direction: column;
+    }
+    
+    .recipe-image {
+        width: 100%;
+        height: 200px;
+    }
+    
+    .omnisearchinput {
+        font-size: 16px; /* Prevents zoom on iOS */
+    }
+
+    .omni-banner-fullscreen .banner-title {
+        font-size: 2.5rem;
+    }
+
+    .omni-banner-fullscreen .banner-tagline {
+        font-size: 1rem;
+        padding: 0 1rem;
+        text-align: center;
+    }
+}
     </style>
 </Layout>
