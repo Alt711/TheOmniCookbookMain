@@ -118,74 +118,336 @@ if (factor && S_CARB.value   != null) H_CARB   = fmt(S_CARB.value   * factor, S_
 if (factor && S_SUGAR.value  != null) H_SUGAR  = fmt(S_SUGAR.value  * factor, S_SUGAR.unit)
 ---
 <Layout title="Chocolate Bar — Nutrition (FDC)">
-	<h1 style="text-align:center;color:#6b3;">Chocolate Bar — Nutrition</h1>
+	<div style="overflow-x: hidden; width: 100vw; max-width: 100%; box-sizing: border-box;">
+	
+	<!-- ANIMATED BANNER -->
+	<div id="omni-banner" class="omni-banner-fullscreen">
+		<img src="/img/omnilogo.png" alt="OmniCookBook Logo" class="banner-logo" />
+		<h1 class="banner-title">OmniCookBook</h1>
+		<p class="banner-tagline">Your Ultimate Recipe & Nutrition Companion</p>
+	</div>
+
+	<h1 class="page-heading">What are you craving for?</h1>
+
+	<form class="search-form" method="get" action="/home">
+		<input 
+			type="text" 
+			name="q" 
+			class="search-input"
+			placeholder="Search for a food item..."
+		/>
+		<button type="submit" class="search-button">🔍 Search</button>
+	</form>
 
 	{error && (
-		<pre style="white-space:pre-wrap;background:#fff3f3;border:1px solid #f3b5b5;padding:.75rem;border-radius:.5rem;max-width:800px;margin:1rem auto;">
-      {error.message}
-    </pre>
+		<pre class="error-box">{error.message}</pre>
 	)}
 
 	{(!error && food) ? (
-		<div style="max-width:800px;margin:1rem auto;">
-			<div style="background:#f7fbff;border:1px solid #dde8f6;border-radius:.5rem;padding:1rem;">
+		<div class="food-results">
+			<div class="food-header">
 				<strong>{food.description || 'Chocolate bar'}</strong>
 				{food.brandOwner && <> — <em>{food.brandOwner}</em></>}
-				<div style="color:#555;margin-top:.25rem;">
+				<div class="serving-info">
 					Serving: {food.servingSize ? `${food.servingSize} ${food.servingSizeUnit || ''}` : 'n/a'}
 				</div>
 			</div>
 
-			<h3 style="margin-top:1rem;">Per serving</h3>
-			<ul style="list-style:none;padding:0;margin:.5rem 0 1rem 0;">
-				<li style="display:flex;justify-content:space-between;border-bottom:1px dashed #ddd;padding:.5rem 0;">
+			<h3 class="nutrients-heading">Per serving</h3>
+			<ul class="nutrients-list">
+				<li class="nutrient-row">
 					<span>Energy</span><span>{fmt(S_ENERGY.value, S_ENERGY.unit)}</span>
 				</li>
-				<li style="display:flex;justify-content:space-between;border-bottom:1px dashed #ddd;padding:.5rem 0;">
+				<li class="nutrient-row">
 					<span>Protein</span><span>{fmt(S_PRO.value, S_PRO.unit)}</span>
 				</li>
-				<li style="display:flex;justify-content:space-between;border-bottom:1px dashed #ddd;padding:.5rem 0;">
+				<li class="nutrient-row">
 					<span>Total fat</span><span>{fmt(S_FAT.value, S_FAT.unit)}</span>
 				</li>
-				<li style="display:flex;justify-content:space-between;border-bottom:1px dashed #ddd;padding:.5rem 0;">
+				<li class="nutrient-row">
 					<span>Carbohydrate</span><span>{fmt(S_CARB.value, S_CARB.unit)}</span>
 				</li>
-				<li style="display:flex;justify-content:space-between;border-bottom:1px dashed #ddd;padding:.5rem 0;">
+				<li class="nutrient-row">
 					<span>Sugars</span><span>{fmt(S_SUGAR.value, S_SUGAR.unit)}</span>
 				</li>
 			</ul>
 
 			{factor && (
 				<>
-					<h3>Per 100 g</h3>
-					<ul style="list-style:none;padding:0;margin:.5rem 0 1rem 0;">
-						<li style="display:flex;justify-content:space-between;border-bottom:1px dashed #ddd;padding:.5rem 0;">
+					<h3 class="nutrients-heading">Per 100 g</h3>
+					<ul class="nutrients-list">
+						<li class="nutrient-row">
 							<span>Energy</span><span>{H_ENERGY ?? '—'}</span>
 						</li>
-						<li style="display:flex;justify-content:space-between;border-bottom:1px dashed #ddd;padding:.5rem 0;">
+						<li class="nutrient-row">
 							<span>Protein</span><span>{H_PRO ?? '—'}</span>
 						</li>
-						<li style="display:flex;justify-content:space-between;border-bottom:1px dashed #ddd;padding:.5rem 0;">
+						<li class="nutrient-row">
 							<span>Total fat</span><span>{H_FAT ?? '—'}</span>
 						</li>
-						<li style="display:flex;justify-content:space-between;border-bottom:1px dashed #ddd;padding:.5rem 0;">
+						<li class="nutrient-row">
 							<span>Carbohydrate</span><span>{H_CARB ?? '—'}</span>
 						</li>
-						<li style="display:flex;justify-content:space-between;border-bottom:1px dashed #ddd;padding:.5rem 0;">
+						<li class="nutrient-row">
 							<span>Sugars</span><span>{H_SUGAR ?? '—'}</span>
 						</li>
 					</ul>
-					<p style="color:#666;font-size:.9rem;margin-top:-.5rem;">
-						Per-100 g is calculated from serving size when it’s in grams.
+					<p class="source-note">
+						Per-100 g is calculated from serving size when it's in grams.
 					</p>
 				</>
 			)}
 
-			<p style="color:#666;font-size:.9rem;">
+			<p class="source-note">
 				Source: USDA FoodData Central (FDC). Values vary by item. Rebuild to refresh.
 			</p>
 		</div>
 	) : (
-		!error && <p style="text-align:center;">No data at build time.</p>
+		!error && <p class="no-data">No data at build time.</p>
 	)}
+
+	<script type="module">
+		// Banner animation
+		let hasScrolled = false;
+		window.addEventListener('scroll', () => {
+			const banner = document.getElementById('omni-banner');
+			if (!banner || hasScrolled) return;
+
+			if (window.scrollY > 50) {
+				hasScrolled = true;
+				banner.classList.remove('omni-banner-fullscreen');
+				banner.classList.add('omni-banner-corner');
+			}
+		});
+
+		setTimeout(() => {
+			const banner = document.getElementById('omni-banner');
+			if (banner && !hasScrolled) {
+				hasScrolled = true;
+				banner.classList.remove('omni-banner-fullscreen');
+				banner.classList.add('omni-banner-corner');
+			}
+		}, 3000);
+	</script>
+
+	<style>
+	:root {
+		--primary: #e67e22;
+		--primary-light: #f39c12;
+		--primary-dark: #d35400;
+		--banner-color: #df976e;
+		--border: #e1e8ed;
+		--text-primary: #2d3748;
+		--text-secondary: #718096;
+	}
+
+	body {
+		overflow-x: hidden;
+		max-width: 100vw;
+	}
+
+	* {
+		box-sizing: border-box;
+	}
+
+	.omni-banner-fullscreen {
+		position: fixed;
+		top: 0;
+		left: 0;
+		width: 100vw;
+		height: 100vh;
+		background: linear-gradient(135deg, var(--primary-dark) 0%, var(--banner-color) 100%);
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		z-index: 9999;
+		transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+	}
+
+	.omni-banner-corner {
+		position: fixed;
+		top: 1rem;
+		left: 1rem;
+		width: 0;
+		height: 0;
+		opacity: 0;
+		pointer-events: none;
+		z-index: 1000;
+		transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+	}
+
+	.omni-banner-fullscreen .banner-logo {
+		width: 120px;
+		height: 120px;
+		margin-bottom: 1.5rem;
+		animation: float 3s ease-in-out infinite;
+	}
+
+	.omni-banner-fullscreen .banner-title {
+		color: white;
+		font-size: 3.5rem;
+		font-weight: 800;
+		margin: 0;
+		letter-spacing: -0.02em;
+	}
+
+	.omni-banner-fullscreen .banner-tagline {
+		color: rgba(255, 255, 255, 0.9);
+		font-size: 1.25rem;
+		margin: 0.5rem 0 0 0;
+		font-weight: 300;
+	}
+
+	.omni-banner-corner .banner-logo,
+	.omni-banner-corner .banner-title,
+	.omni-banner-corner .banner-tagline {
+		display: none;
+	}
+
+	@keyframes float {
+		0%, 100% { transform: translateY(0px); }
+		50% { transform: translateY(-20px); }
+	}
+
+	.page-heading {
+		text-align: center;
+		color: var(--primary);
+		margin-top: 6rem;
+		font-size: 2.5rem;
+		font-weight: 700;
+	}
+
+	.search-form {
+		max-width: 600px;
+		margin: 2rem auto;
+		display: flex;
+		gap: 0.5rem;
+		padding: 0 1rem;
+	}
+
+	.search-input {
+		flex: 1;
+		padding: 1rem 1.5rem;
+		font-size: 1rem;
+		border: 2px solid var(--border);
+		border-radius: 12px;
+		transition: all 0.3s ease;
+		background: white;
+		box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+	}
+
+	.search-input:focus {
+		outline: none;
+		border-color: var(--primary);
+		box-shadow: 0 0 0 3px rgba(230, 126, 34, 0.1), 0 4px 20px rgba(0, 0, 0, 0.08);
+	}
+
+	.search-button {
+		padding: 1rem 1.5rem;
+		border-radius: 12px;
+		border: none;
+		background: var(--primary);
+		color: white;
+		font-weight: 600;
+		font-size: 1rem;
+		cursor: pointer;
+		transition: all 0.2s ease;
+		box-shadow: 0 2px 8px rgba(230, 126, 34, 0.2);
+		white-space: nowrap;
+	}
+
+	.search-button:hover {
+		background: var(--primary-dark);
+		transform: translateY(-1px);
+		box-shadow: 0 4px 12px rgba(230, 126, 34, 0.3);
+	}
+
+	.food-results {
+		max-width: 800px;
+		margin: 2rem auto;
+		padding: 0 1rem;
+	}
+
+	.food-header {
+		background: #fff5f0;
+		border: 1px solid #ffd4c0;
+		border-radius: 8px;
+		padding: 1rem;
+	}
+
+	.serving-info {
+		color: var(--text-secondary);
+		margin-top: 0.25rem;
+		font-size: 0.9rem;
+	}
+
+	.nutrients-heading {
+		margin-top: 1rem;
+		color: var(--text-primary);
+	}
+
+	.nutrients-list {
+		list-style: none;
+		padding: 0;
+		margin: 0.5rem 0 1rem 0;
+	}
+
+	.nutrient-row {
+		display: flex;
+		justify-content: space-between;
+		border-bottom: 1px dashed #ddd;
+		padding: 0.5rem 0;
+	}
+
+	.source-note {
+		color: var(--text-secondary);
+		font-size: 0.9rem;
+		margin-top: 0.5rem;
+	}
+
+	.error-box {
+		white-space: pre-wrap;
+		background: #fff3f3;
+		border: 2px solid #f3b5b5;
+		padding: 1rem 1.5rem;
+		border-radius: 12px;
+		max-width: 800px;
+		margin: 2rem auto;
+		box-shadow: 0 2px 8px rgba(229, 62, 62, 0.1);
+	}
+
+	.no-data {
+		text-align: center;
+		color: var(--text-secondary);
+		margin: 2rem auto;
+	}
+
+	@media (max-width: 768px) {
+		.page-heading {
+			font-size: 2rem;
+			margin-top: 5rem;
+		}
+
+		.search-form {
+			flex-direction: column;
+		}
+
+		.search-input,
+		.search-button {
+			font-size: 16px;
+		}
+
+		.omni-banner-fullscreen .banner-title {
+			font-size: 2.5rem;
+		}
+
+		.omni-banner-fullscreen .banner-tagline {
+			font-size: 1rem;
+			padding: 0 1rem;
+			text-align: center;
+		}
+	}
+	</style>
+	</div>
 </Layout>
